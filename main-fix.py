@@ -67,7 +67,7 @@ FALLBACK_PASSWORD = ""
 
 # Runtime stability controls: keep the existing login protocol unchanged,
 # but prevent burst-login and long-running match-task buildup.
-LOGIN_CONCURRENCY = 3
+LOGIN_CONCURRENCY = 8
 LOGIN_VERSION_CACHE_TTL = 21600.0  # keep a good config for 6h
 VERSION_CONFIG_CACHE_FILE = "version_config_cache.json"
 PLAYSTORE_VERSION_CACHE_FILE = "playstore_version_cache.json"

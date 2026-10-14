@@ -1,17 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-FreeFire Level Up Bot - Professional Web Dashboard & Real-Time EXP Tracker
+HARSH Level Up Bot - Web Dashboard & Real-Time Tracker
 Embedded Async Web Server (aiohttp)
+- Fast async batch import (background worker launches)
+- Instant PENDING placeholder cards (visible before login completes)
 """
 
 import asyncio
 import json
 import os
 import time
+from datetime import timedelta
 from typing import Dict, List, Any, Optional
 from aiohttp import web
 
-# Global bot state shared between Main.py and Web Dashboard
+# How long a PENDING placeholder may live without a successful login (seconds)
+PENDING_TTL = 900
+
+
 class BotState:
     def __init__(self):
         self.accounts: Dict[str, Dict[str, Any]] = {}
@@ -35,10 +41,47 @@ class BotState:
         if len(self.logs) > self.max_logs:
             self.logs.pop(0)
 
+    # ---------- PENDING placeholders (visible instantly after import) ----------
+    def register_pending(self, uid_key: str):
+        uid_str = str(uid_key).strip()
+        if not uid_str:
+            return
+        if uid_str in self.accounts:
+            return
+        self.accounts[uid_str] = {
+            "uid": uid_str,
+            "nickname": f"UID ...{uid_str[-4:]}" if not uid_str.startswith("tok:") else "Token node",
+            "region": "—",
+            "level": 0,
+            "initial_exp": 0,
+            "current_exp": 0,
+            "gained_exp": 0,
+            "likes": 0,
+            "mode": "BR",
+            "mode_manual": False,
+            "status": "PENDING",
+            "matches_played": 0,
+            "active_matches": 0,
+            "last_match_time": None,
+            "last_updated": time.strftime("%H:%M:%S"),
+            "pending": True,
+            "pending_at": time.time(),
+        }
+        self.recalc_totals()
+
+    def prune_pending(self):
+        """Drop PENDING placeholders that never completed login."""
+        now = time.time()
+        stale = [k for k, a in self.accounts.items()
+                 if a.get("pending") and now - a.get("pending_at", now) > PENDING_TTL]
+        for k in stale:
+            del self.accounts[k]
+            self.log(f"Node {k} removed (login never completed).", "warning", k if not k.startswith("tok:") else None)
+
+    # ---------- real registration after login ----------
     def register_account(self, uid: str, nickname: str, region: str, level: int, exp: int, likes: int = 0):
         uid_str = str(uid)
         lvl_val = max(1, int(level or 1))
-        default_mode = "BR"
         if uid_str not in self.accounts:
             self.accounts[uid_str] = {
                 "uid": uid_str,
@@ -49,7 +92,7 @@ class BotState:
                 "current_exp": exp,
                 "gained_exp": 0,
                 "likes": likes or 0,
-                "mode": default_mode,
+                "mode": "BR",
                 "mode_manual": False,
                 "status": "ONLINE",
                 "matches_played": 0,
@@ -59,20 +102,34 @@ class BotState:
             }
         else:
             acc = self.accounts[uid_str]
-            old_level = int(acc.get("level", 1) or 1)
-            if nickname:
-                acc["nickname"] = nickname
-            if region:
-                acc["region"] = region
-            if level:
-                acc["level"] = lvl_val
-            acc["current_exp"] = exp
-            acc["gained_exp"] = max(0, exp - acc["initial_exp"])
-            acc["likes"] = likes
-            if not acc.get("mode_manual", False):
-                acc["mode"] = "BR"
-            acc["status"] = "ONLINE"
-            acc["last_updated"] = time.strftime("%H:%M:%S")
+            if acc.get("pending"):
+                # Upgrade placeholder: baseline EXP starts HERE (no fake gain)
+                acc.update({
+                    "nickname": nickname or acc.get("nickname"),
+                    "region": region or acc.get("region"),
+                    "level": lvl_val,
+                    "initial_exp": exp,
+                    "current_exp": exp,
+                    "gained_exp": 0,
+                    "likes": likes or 0,
+                    "status": "ONLINE",
+                    "pending": False,
+                    "last_updated": time.strftime("%H:%M:%S")
+                })
+            else:
+                if nickname:
+                    acc["nickname"] = nickname
+                if region:
+                    acc["region"] = region
+                if level:
+                    acc["level"] = lvl_val
+                acc["current_exp"] = exp
+                acc["gained_exp"] = max(0, exp - acc["initial_exp"])
+                acc["likes"] = likes
+                if not acc.get("mode_manual", False):
+                    acc["mode"] = "BR"
+                acc["status"] = "ONLINE"
+                acc["last_updated"] = time.strftime("%H:%M:%S")
         self.recalc_totals()
 
     def update_exp(self, uid: str, current_exp: int, level: Optional[int] = None):
@@ -80,17 +137,11 @@ class BotState:
         if uid_str in self.accounts:
             acc = self.accounts[uid_str]
             old_exp = acc["current_exp"]
-            old_level = int(acc.get("level", 1) or 1)
             acc["current_exp"] = current_exp
             if level is not None and level > 0:
                 acc["level"] = int(level)
-            current_level = int(acc.get("level", 1) or 1)
-
-            # BR remains the automatic/default mode forever. LONE_WOLF
-            # is entered only through an explicit manual mode switch.
             if not acc.get("mode_manual", False):
                 acc["mode"] = "BR"
-
             acc["gained_exp"] = max(0, current_exp - acc["initial_exp"])
             acc["last_updated"] = time.strftime("%H:%M:%S")
             diff = current_exp - old_exp
@@ -110,8 +161,6 @@ class BotState:
         acc = self.accounts.get(str(uid))
         if not acc:
             return "BR"
-        # BR is the default through Level 10. Once the account is above Level 10,
-        # expose the effective automatic mode as Lone Wolf regardless of the saved preference.
         level = int(acc.get("level", 1) or 1)
         if level > 10:
             return "LONE_WOLF"
@@ -139,10 +188,7 @@ class BotState:
         acc["mode"] = mode
         acc["mode_manual"] = True
         acc["last_updated"] = time.strftime("%H:%M:%S")
-        self.log(
-            f"UID {uid_str} ({acc.get('nickname', 'Unknown')}) switched to {mode}",
-            "success", uid_str
-        )
+        self.log(f"UID {uid_str} ({acc.get('nickname', 'Unknown')}) switched to {mode}", "success", uid_str)
         return True, mode
 
     def update_status(self, uid: str, status: str, active_matches: Optional[int] = None):
@@ -168,8 +214,14 @@ class BotState:
 
 bot_state = BotState()
 
-# Convenience cursor for the dashboard batch importer.
 batch_import_state = {"last_start": 0, "last_count": 0, "last_end": 0, "total": 0}
+
+import_progress: Dict[str, Any] = {
+    "active": False, "done": 0, "total": 0, "errors": 0,
+    "started_at": None, "finished_at": None,
+}
+
+_IMPORT_TASKS = set()
 
 
 # ==================== HTTP HANDLERS ====================
@@ -186,8 +238,10 @@ async def handle_index(request: web.Request) -> web.Response:
 
 
 async def handle_get_stats(request: web.Request) -> web.Response:
+    bot_state.prune_pending()
     accounts_data = list(bot_state.accounts.values())
-    accounts_data.sort(key=lambda x: x.get("gained_exp", 0), reverse=True)
+    # PENDING first (so you see them immediately), then by gained EXP
+    accounts_data.sort(key=lambda x: (0 if x.get("pending") else 1, -x.get("gained_exp", 0)))
     return web.json_response({
         "total_accounts": len(bot_state.accounts),
         "total_matches": bot_state.total_matches,
@@ -202,14 +256,7 @@ async def handle_get_stats(request: web.Request) -> web.Response:
 async def handle_add_account(request: web.Request) -> web.Response:
     try:
         data = await request.json()
-        accounts_file = "accounts.json"
-        existing = []
-        if os.path.exists(accounts_file):
-            try:
-                with open(accounts_file, "r", encoding="utf-8") as f:
-                    existing = json.load(f)
-            except Exception:
-                existing = []
+        existing = await _load_accounts_file()
 
         if "uid" in data and "password" in data:
             uid = str(data["uid"]).strip()
@@ -218,23 +265,26 @@ async def handle_add_account(request: web.Request) -> web.Response:
                 return web.json_response({"status": "error", "error": "UID and Password are required"})
             existing = [acc for acc in existing if str(acc.get("uid")) != uid]
             existing.append({"uid": uid, "password": pwd})
+            # instant placeholder card
+            bot_state.register_pending(uid)
         elif "token" in data:
             token = str(data["token"]).strip()
             if not token:
                 return web.json_response({"status": "error", "error": "Token is required"})
             existing = [acc for acc in existing if acc.get("token") != token]
             existing.append({"token": token})
+            bot_state.register_pending("tok:" + token[:12])
         else:
             return web.json_response({"status": "error", "error": "Invalid payload"})
 
-        with open(accounts_file, "w", encoding="utf-8") as f:
-            json.dump(existing, f, indent=2)
-
+        _save_accounts_file(existing)
         bot_state.log(f"New account added: {data.get('uid') or 'Token'}", "success")
-        
-        # Trigger dynamic worker launch
-        if "on_account_added" in bot_state.refresh_callbacks:
-            asyncio.create_task(bot_state.refresh_callbacks["on_account_added"](data))
+
+        callback = bot_state.refresh_callbacks.get("on_account_added")
+        if callback:
+            task = asyncio.create_task(_safe_launch(callback, data))
+            _IMPORT_TASKS.add(task)
+            task.add_done_callback(_IMPORT_TASKS.discard)
 
         return web.json_response({"status": "ok"})
     except Exception as e:
@@ -246,21 +296,21 @@ async def handle_delete_account(request: web.Request) -> web.Response:
         data = await request.json()
         uid = str(data.get("uid", "")).strip()
         token = str(data.get("token", "")).strip()
-        accounts_file = "accounts.json"
-        if os.path.exists(accounts_file):
-            with open(accounts_file, "r", encoding="utf-8") as f:
+        if os.path.exists("accounts.json"):
+            with open("accounts.json", "r", encoding="utf-8") as f:
                 existing = json.load(f)
             if token:
                 existing = [acc for acc in existing if str(acc.get("token", "")).strip() != token]
             elif uid:
                 existing = [acc for acc in existing if str(acc.get("uid", "")).strip() != uid]
-            with open(accounts_file, "w", encoding="utf-8") as f:
+            with open("accounts.json", "w", encoding="utf-8") as f:
                 json.dump(existing, f, indent=2)
 
         worker_keys = []
         if uid:
             worker_keys.append(uid)
         if token:
+            worker_keys.append("tok:" + token[:12])
             worker_keys.append(token[:10])
         for key in worker_keys:
             worker = bot_state.account_workers.get(key)
@@ -271,6 +321,8 @@ async def handle_delete_account(request: web.Request) -> web.Response:
 
         if uid and uid in bot_state.accounts:
             del bot_state.accounts[uid]
+        if token and ("tok:" + token[:12]) in bot_state.accounts:
+            del bot_state.accounts["tok:" + token[:12]]
         bot_state.log(f"Account {uid or token[:10] or 'unknown'} removed from rotation.", "warning", uid or None)
         return web.json_response({"status": "ok"})
     except Exception as e:
@@ -289,8 +341,10 @@ async def _load_accounts_file() -> List[Dict[str, Any]]:
 
 
 def _save_accounts_file(accounts: List[Dict[str, Any]]) -> None:
-    with open("accounts.json", "w", encoding="utf-8") as f:
+    tmp = "accounts.json.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(accounts, f, indent=2, ensure_ascii=False)
+    os.replace(tmp, "accounts.json")
 
 
 def _normalize_uploaded_accounts(payload: Any) -> tuple[List[Dict[str, str]], Optional[str]]:
@@ -318,7 +372,24 @@ def _normalize_uploaded_accounts(payload: Any) -> tuple[List[Dict[str, str]], Op
     return result, None
 
 
+async def _safe_launch(callback, acc: Dict[str, Any]):
+    """Run one worker launch in the background, counting progress/errors."""
+    ident = str(acc.get("uid", acc.get("token", "?")))[:12]
+    try:
+        await callback(acc)
+    except Exception as e:
+        import_progress["errors"] += 1
+        bot_state.log(f"Worker launch failed ({ident}): {e}", "error")
+    finally:
+        import_progress["done"] += 1
+        import_progress["finished_at"] = time.time()
+
+
 async def handle_batch_import(request: web.Request) -> web.Response:
+    """
+    Async batch import: validates + saves instantly, shows PENDING cards
+    immediately, queues worker launches in the background, responds in <1s.
+    """
     global batch_import_state
     try:
         reader = await request.multipart()
@@ -367,29 +438,68 @@ async def handle_batch_import(request: web.Request) -> web.Response:
 
         end = min(total, start + count - 1)
         selected = source[start - 1:end]
-        existing = await _load_accounts_file()
+
+        # instant PENDING cards — visible on the next /api/stats poll (<2.5s)
         for acc in selected:
-            if "uid" in acc:
-                existing = [x for x in existing if str(x.get("uid", "")).strip() != acc["uid"]]
+            if acc.get("uid"):
+                bot_state.register_pending(acc["uid"])
             else:
-                existing = [x for x in existing if str(x.get("token", "")).strip() != acc["token"]]
-            existing.append(acc)
-        _save_accounts_file(existing)
+                bot_state.register_pending("tok:" + str(acc.get("token", ""))[:12])
+
+        existing = await _load_accounts_file()
+        drop_keys = {
+            (str(x.get("uid", "")).strip() or str(x.get("token", "")).strip())
+            for x in existing
+        }
+        for acc in selected:
+            drop_keys.discard(str(acc.get("uid", acc.get("token", ""))).strip())
+        kept = [x for x in existing
+                if (str(x.get("uid", "")).strip() or str(x.get("token", "")).strip()) in drop_keys]
+        _save_accounts_file(kept + selected)
 
         batch_import_state = {"last_start": start, "last_count": len(selected), "last_end": end, "total": total}
-        callback = bot_state.refresh_callbacks.get("on_account_added")
-        started = 0
-        if callback:
-            for acc in selected:
-                await callback(acc)
-                started += 1
-                if started < len(selected):
-                    await asyncio.sleep(0.20)
+        bot_state.log(f"Batch import: accounts {start}-{end} selected from {total}; {len(selected)} queued.", "success")
 
-        bot_state.log(f"Batch import: accounts {start}-{end} selected from {total}; {len(selected)} loaded.", "success")
-        return web.json_response({"status": "ok", "total": total, "start": start, "count": len(selected), "end": end, "next_start": end + 1 if end < total else None, "started": started, "message": f"Accounts {start}-{end} imported"})
+        callback = bot_state.refresh_callbacks.get("on_account_added")
+        import_progress.update({
+            "active": True, "done": 0, "total": len(selected), "errors": 0,
+            "started_at": time.time(), "finished_at": None,
+        })
+
+        async def _launch_batch():
+            for acc in selected:
+                if callback:
+                    task = asyncio.create_task(_safe_launch(callback, acc))
+                    _IMPORT_TASKS.add(task)
+                    task.add_done_callback(_IMPORT_TASKS.discard)
+                else:
+                    import_progress["done"] += 1
+                await asyncio.sleep(0.02)
+            import_progress["active"] = False
+
+        launcher = asyncio.create_task(_launch_batch())
+        _IMPORT_TASKS.add(launcher)
+        launcher.add_done_callback(_IMPORT_TASKS.discard)
+
+        return web.json_response({
+            "status": "ok", "queued": len(selected),
+            "total": total, "start": start, "end": end,
+            "next_start": end + 1 if end < total else None,
+            "message": f"Accounts {start}-{end} queued ({len(selected)} nodes launching in background)"
+        })
     except Exception as e:
+        import_progress["active"] = False
         return web.json_response({"status": "error", "error": str(e)}, status=500)
+
+
+async def handle_import_status(request: web.Request) -> web.Response:
+    p = dict(import_progress)
+    if p["started_at"]:
+        p["elapsed"] = round((p["finished_at"] or time.time()) - p["started_at"], 1)
+    else:
+        p["elapsed"] = 0
+    p["percent"] = round(100 * p["done"] / p["total"], 1) if p["total"] else 0
+    return web.json_response(p)
 
 
 async def handle_delete_all_accounts(request: web.Request) -> web.Response:
@@ -414,7 +524,24 @@ async def handle_delete_all_accounts(request: web.Request) -> web.Response:
 
 
 async def handle_health(request: web.Request) -> web.Response:
-    return web.json_response({"status": "ok", "accounts": len(bot_state.accounts), "uptime": int(time.time() - bot_state.start_time)})
+    accounts = list(bot_state.accounts.values())
+    by_status: Dict[str, int] = {}
+    for acc in accounts:
+        s = str(acc.get("status", "OFFLINE"))
+        by_status[s] = by_status.get(s, 0) + 1
+    up = int(time.time() - bot_state.start_time)
+    rate = bot_state.total_gained_exp / (up / 3600) if up > 60 else 0.0
+    return web.json_response({
+        "status": "ok",
+        "version": "HARSH-1.0",
+        "accounts": len(accounts),
+        "accounts_by_status": by_status,
+        "total_matches": bot_state.total_matches,
+        "total_gained_exp": bot_state.total_gained_exp,
+        "exp_per_hour": round(rate, 1),
+        "uptime_seconds": up,
+        "uptime": str(timedelta(seconds=up)),
+    })
 
 
 async def handle_refresh_account(request: web.Request) -> web.Response:
@@ -437,9 +564,7 @@ async def handle_mode_switch(request: web.Request) -> web.Response:
         if not ok:
             return web.json_response({"status": "error", "error": result}, status=400)
         return web.json_response({
-            "status": "ok",
-            "uid": uid,
-            "mode": result,
+            "status": "ok", "uid": uid, "mode": result,
             "level": bot_state.get_account_level(uid)
         })
     except Exception as e:
@@ -450,6 +575,7 @@ async def start_web_dashboard(host: str = "0.0.0.0", port: int = 5000):
     app = web.Application()
     app.router.add_get("/", handle_index)
     app.router.add_get("/api/stats", handle_get_stats)
+    app.router.add_get("/api/import/status", handle_import_status)
     app.router.add_post("/api/account/add", handle_add_account)
     app.router.add_post("/api/account/delete", handle_delete_account)
     app.router.add_post("/api/account/import", handle_batch_import)
