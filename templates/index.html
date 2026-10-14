@@ -30,7 +30,7 @@ body{font-family:'Plus Jakarta Sans','Noto Sans Arabic','Noto Sans Devanagari',s
 button,input,select,textarea{font-family:inherit}
 :focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 
-/* BG — gradient orbs instead of filter:blur (main lag source removed) */
+/* BG — gradient orbs, no filter:blur */
 .bg{position:fixed;inset:0;z-index:-1;background:radial-gradient(ellipse at 20% 0%,#1b1250 0%,transparent 55%),radial-gradient(ellipse at 90% 100%,#0b2a66 0%,transparent 55%),var(--bg)}
 .bg::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(139,148,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(139,148,255,.07) 1px,transparent 1px);background-size:44px 44px;-webkit-mask-image:radial-gradient(ellipse at 50% 30%,#000 0%,transparent 72%);mask-image:radial-gradient(ellipse at 50% 30%,#000 0%,transparent 72%)}
 .orb{position:absolute;border-radius:50%;will-change:transform;animation:drift 26s infinite alternate ease-in-out}
@@ -105,6 +105,10 @@ body.menu-open .sidebar{transform:none}
 .batch-grid{display:grid;grid-template-columns:minmax(220px,1.8fr) 120px 120px auto;gap:12px;align-items:end}
 .batch-box .field{margin-bottom:0}.batch-preview{margin-top:14px;padding:11px 13px;border-radius:10px;background:rgba(5,6,22,.45);border:1px solid var(--line);font-size:12px;color:var(--dim)}
 .batch-preview strong{color:var(--text)}
+.import-progress{margin-top:14px}
+.ip-bar{height:8px;border-radius:9px;background:rgba(5,6,22,.7);overflow:hidden}
+.ip-fill{height:100%;width:0%;background:var(--grad);transition:width .4s ease;border-radius:9px}
+.ip-text{margin-top:6px;font-size:12px;color:var(--dim);font-family:'JetBrains Mono',monospace}
 .batch-danger{border-color:rgba(239,68,68,.3)}
 @media(max-width:760px){.batch-grid{grid-template-columns:1fr 1fr}.batch-grid .file-field{grid-column:1/-1}.batch-grid .batch-actions{grid-column:1/-1}}
 .search{flex:1;min-width:220px;position:relative}
@@ -205,7 +209,7 @@ body.menu-open .sidebar{transform:none}
 .toast.success{border-left-color:var(--ok)}.toast.error{border-left-color:var(--err)}.toast.hide{opacity:0;transform:translateX(30px);transition:.35s}
 @keyframes tin{from{opacity:0;transform:translateX(40px)}}
 
-/* PAGE ENTER (one-shot, cheap) */
+/* PAGE ENTER */
 .page.active .stat,.page.active .node,.page.active .hero,.page.active .info,.page.active .term{animation:rise .5s cubic-bezier(.2,.8,.2,1) backwards}
 .page.active .stat:nth-child(2),.page.active .node:nth-child(2){animation-delay:.07s}
 .page.active .stat:nth-child(3),.page.active .node:nth-child(3){animation-delay:.14s}
@@ -264,95 +268,108 @@ body.menu-open .sidebar{transform:none}
 <div class="bg"><div class="orb a"></div><div class="orb b"></div><div class="orb c"></div></div>
 
 <header class="topbar">
-  <button class="menu-btn" id="menuBtn" aria-label="Buka menu" aria-expanded="false"><i class="fa-solid fa-bars"></i></button>
+  <button class="menu-btn" id="menuBtn" data-i-title="aria.menu"><i class="fa-solid fa-bars"></i></button>
   <div class="top-title"><span id="topTitle">Command Core</span><small>HARSH</small></div>
   <div class="pill" id="pill"><i class="dot"></i><span id="side-status">ONLINE</span></div>
-  <select class="lang" id="lang" aria-label="Language"><option value="id">Indonesia</option><option value="ar">العربية</option><option value="ne">नेपाली</option><option value="en">English</option><option value="hi">हिन्दी</option></select>
-  <button class="heart-btn" onclick="document.querySelector('[data-page=donate]').click()" aria-label="Donasi" title="Donasi"><i class="fa-solid fa-heart"></i></button>
+  <select class="lang" id="lang" aria-label="Language" onchange="applyLang(this.value)">
+    <option value="id">Indonesia</option>
+    <option value="ar">العربية</option>
+    <option value="ne">नेपाली</option>
+    <option value="en">English</option>
+    <option value="hi">हिन्दी</option>
+  </select>
+  <button class="heart-btn" onclick="document.querySelector('[data-page=donate]').click()" data-i-title="nav.donate"><i class="fa-solid fa-heart"></i></button>
 </header>
 
 <div class="overlay" id="overlay"></div>
 <nav class="sidebar" id="sidebar" aria-label="Menu utama">
   <div class="brand">
     <div class="brand-icon"><i class="fa-solid fa-skull"></i></div>
-    <div><div class="brand-name">HARSH</div><div class="brand-sub">Real-Time Command Center</div></div>
+    <div><div class="brand-name">HARSH</div><div class="brand-sub" data-i="brand.sub">Real-Time Command Center</div></div>
   </div>
   <div class="nav">
-    <button class="nav-item active" data-page="core" data-title="Command Core"><i class="fa-solid fa-gauge-high"></i>Command Core</button>
-    <button class="nav-item" data-page="targets" data-title="Target Nodes"><i class="fa-solid fa-network-wired"></i>Target Nodes</button>
-    <button class="nav-item" data-page="terminal" data-title="Uplink Terminal"><i class="fa-solid fa-terminal"></i>Uplink Terminal</button>
-    <button class="nav-item" data-page="profile" data-title="Profil HARSH"><i class="fa-solid fa-id-badge"></i>Profil HARSH</button>
-    <button class="nav-item" data-page="donate" data-title="Donasi"><i class="fa-solid fa-heart"></i>Donasi</button>
+    <button class="nav-item active" data-page="core" data-title="nav.core"><i class="fa-solid fa-gauge-high"></i><span data-i="nav.core">Command Core</span></button>
+    <button class="nav-item" data-page="targets" data-title="nav.targets"><i class="fa-solid fa-network-wired"></i><span data-i="nav.targets">Target Nodes</span></button>
+    <button class="nav-item" data-page="terminal" data-title="nav.terminal"><i class="fa-solid fa-terminal"></i><span data-i="nav.terminal">Uplink Terminal</span></button>
+    <button class="nav-item" data-page="profile" data-title="nav.profile"><i class="fa-solid fa-id-badge"></i><span data-i="nav.profile">Profil HARSH</span></button>
+    <button class="nav-item" data-page="donate" data-title="nav.donate"><i class="fa-solid fa-heart"></i><span data-i="nav.donate">Donasi</span></button>
   </div>
-  <div class="side-foot">Status mesin<b id="side-status-2">ONLINE</b></div>
+  <div class="side-foot"><span data-i="side.engine">Status mesin</span><b id="side-status-2">ONLINE</b></div>
 </nav>
 
 <main class="main">
+  <!-- ============ CORE ============ -->
   <section id="page-core" class="page active">
     <div class="page-head">
-      <div><h1 class="page-title">Command Core</h1><p class="page-sub">Analitik sistem secara real-time</p></div>
-      <button class="btn primary" onclick="fetchStats()"><i class="fa-solid fa-rotate"></i>Sinkronkan</button>
+      <div><h1 class="page-title" data-i="nav.core">Command Core</h1><p class="page-sub" data-i="core.sub">Analitik sistem secara real-time</p></div>
+      <button class="btn primary" onclick="fetchStats()"><i class="fa-solid fa-rotate"></i><span data-i="core.sync">Sinkronkan</span></button>
     </div>
     <div class="stats">
-      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-diagram-project"></i></div><div class="stat-val" id="stat-accounts">0</div><div class="stat-label">Total node terhubung</div><div class="stat-foot" id="stat-online">0 Online</div></div>
-      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-bolt"></i></div><div class="stat-val" id="stat-started">0</div><div class="stat-label">Eksekusi dimulai</div><div class="stat-foot" id="stat-per-hour">~0 / jam</div></div>
-      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-fire-flame-curved"></i></div><div class="stat-val" id="stat-exp">+0</div><div class="stat-label">Total EXP terkumpul</div><div class="stat-foot" id="stat-exp-rate">~0 EXP/jam</div></div>
-      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-clock"></i></div><div class="stat-val" id="stat-uptime">00:00:00</div><div class="stat-label">Uptime sistem</div><div class="stat-foot" id="stat-active-matches">0 Active</div></div>
+      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-diagram-project"></i></div><div class="stat-val" id="stat-accounts">0</div><div class="stat-label" data-i="stat.nodes">Total node terhubung</div><div class="stat-foot" id="stat-online">0 Online</div></div>
+      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-bolt"></i></div><div class="stat-val" id="stat-started">0</div><div class="stat-label" data-i="stat.exec">Eksekusi dimulai</div><div class="stat-foot" id="stat-per-hour">~0 / jam</div></div>
+      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-fire-flame-curved"></i></div><div class="stat-val" id="stat-exp">+0</div><div class="stat-label" data-i="stat.exp">Total EXP terkumpul</div><div class="stat-foot" id="stat-exp-rate">~0 EXP/jam</div></div>
+      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-clock"></i></div><div class="stat-val" id="stat-uptime">00:00:00</div><div class="stat-label" data-i="stat.uptime">Uptime sistem</div><div class="stat-foot" id="stat-active-matches">0 Active</div></div>
     </div>
   </section>
 
+  <!-- ============ TARGETS ============ -->
   <section id="page-targets" class="page">
     <div class="page-head">
-      <div><h1 class="page-title">Target Nodes</h1><p class="page-sub">Kelola akun yang terhubung</p></div>
+      <div><h1 class="page-title" data-i="nav.targets">Target Nodes</h1><p class="page-sub" data-i="targets.sub">Kelola akun yang terhubung</p></div>
       <div class="row">
-        <button class="btn" id="btn-pause-all" onclick="togglePauseAll()"><i class="fa-solid fa-pause"></i> Pause All</button>
-        <button class="btn primary" onclick="openAddModal()"><i class="fa-solid fa-plus"></i> Inject Node</button>
+        <button class="btn" id="btn-pause-all" onclick="togglePauseAll()"><i class="fa-solid fa-pause"></i> <span id="pauseAllLabel">Pause All</span></button>
+        <button class="btn primary" onclick="openAddModal()"><i class="fa-solid fa-plus"></i> <span data-i="btn.inject">Inject Node</span></button>
       </div>
     </div>
     <div class="batch-box">
       <div class="batch-head">
-        <div><div class="batch-title"><i class="fa-solid fa-file-arrow-up"></i> JSON Batch Import</div><div class="batch-sub">Upload JSON sekali, lalu pakai Start + Count untuk mengaktifkan rentang account tertentu. JSON tidak disimpan terpisah di server.</div></div>
-        <button class="btn" type="button" onclick="useNextBatch()"><i class="fa-solid fa-forward"></i> Next Batch</button>
+        <div><div class="batch-title"><i class="fa-solid fa-file-arrow-up"></i> <span data-i="batch.title">JSON Batch Import</span></div><div class="batch-sub" data-i="batch.sub"></div></div>
+        <button class="btn" type="button" onclick="useNextBatch()"><i class="fa-solid fa-forward"></i> <span data-i="batch.next">Next Batch</span></button>
       </div>
       <div class="batch-grid">
-        <div class="field file-field"><label>Account JSON</label><input id="batch-file" type="file" accept=".json,application/json" onchange="previewBatchFile()"></div>
-        <div class="field"><label>Start account #</label><input id="batch-start" type="number" min="1" value="1" oninput="updateBatchPreview()"></div>
-        <div class="field"><label>How many</label><input id="batch-count" type="number" min="1" max="500" value="10" oninput="updateBatchPreview()"></div>
+        <div class="field file-field"><label data-i="batch.file">Account JSON</label><input id="batch-file" type="file" accept=".json,application/json" onchange="previewBatchFile()"></div>
+        <div class="field"><label data-i="batch.start">Start account #</label><input id="batch-start" type="number" min="1" value="1" oninput="updateBatchPreview()"></div>
+        <div class="field"><label data-i="batch.count">How many</label><input id="batch-count" type="number" min="1" max="500" value="10" oninput="updateBatchPreview()"></div>
         <div class="row batch-actions">
-          <button class="btn primary" type="button" onclick="submitBatchImport()"><i class="fa-solid fa-upload"></i> Import Range</button>
-          <button class="btn batch-danger" type="button" onclick="deleteAllAccounts()"><i class="fa-solid fa-trash-can"></i> Delete All</button>
+          <button class="btn primary" type="button" onclick="submitBatchImport()"><i class="fa-solid fa-upload"></i> <span data-i="batch.import">Import Range</span></button>
+          <button class="btn batch-danger" type="button" onclick="deleteAllAccounts()"><i class="fa-solid fa-trash-can"></i> <span data-i="batch.deleteAll">Delete All</span></button>
         </div>
       </div>
-      <div class="batch-preview" id="batch-preview">Pilih JSON dan total account beserta rentang terpilih akan tampil di sini. Contoh: Start 1 + Count 10 → Accounts 1–10.</div>
+      <div class="import-progress" id="import-progress" style="display:none">
+        <div class="ip-bar"><div class="ip-fill" id="ip-fill"></div></div>
+        <div class="ip-text" id="ip-text"></div>
+      </div>
+      <div class="batch-preview" id="batch-preview" data-i="batch.preview"></div>
     </div>
     <div class="controls">
-      <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="account-search" type="text" placeholder="Cari UID atau nickname..." oninput="filterAccountsDebounced()"></div>
+      <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="account-search" type="text" data-i-ph="search.ph" oninput="filterAccountsDebounced()"></div>
       <div class="seg" id="node-filters">
-        <button class="active" onclick="setFilter('all',this)">Semua</button>
-        <button onclick="setFilter('in_match',this)">Match</button>
-        <button onclick="setFilter('online',this)">Online</button>
-        <button onclick="setFilter('paused',this)">Paused</button>
+        <button class="active" onclick="setFilter('all',this)" data-i="filter.all">Semua</button>
+        <button onclick="setFilter('in_match',this)" data-i="filter.match">Match</button>
+        <button onclick="setFilter('online',this)" data-i="filter.online">Online</button>
+        <button onclick="setFilter('paused',this)" data-i="filter.paused">Paused</button>
       </div>
     </div>
     <div class="grid" id="accounts-container">
-      <div class="empty"><i class="fa-solid fa-circle-notch fa-spin"></i>Menghubungkan ke backend...</div>
+      <div class="empty"><i class="fa-solid fa-circle-notch fa-spin"></i><span data-i="empty.connecting">Menghubungkan ke backend...</span></div>
     </div>
   </section>
 
+  <!-- ============ TERMINAL ============ -->
   <section id="page-terminal" class="page">
     <div class="page-head">
-      <div><h1 class="page-title">Uplink Terminal</h1><p class="page-sub">Log eksekusi backend langsung</p></div>
+      <div><h1 class="page-title" data-i="nav.terminal">Uplink Terminal</h1><p class="page-sub" data-i="term.sub">Log eksekusi backend langsung</p></div>
       <div class="row">
-        <button class="btn" id="btn-autoscroll" onclick="toggleAutoScroll()"><i class="fa-solid fa-arrow-down"></i> Auto-scroll</button>
-        <button class="btn primary" onclick="clearLogs()"><i class="fa-solid fa-trash"></i> Hapus log</button>
+        <button class="btn" id="btn-autoscroll" onclick="toggleAutoScroll()"><i class="fa-solid fa-arrow-down"></i> <span data-i="btn.autoscroll">Auto-scroll</span></button>
+        <button class="btn primary" onclick="clearLogs()"><i class="fa-solid fa-trash"></i> <span data-i="btn.clearLogs">Hapus log</span></button>
       </div>
     </div>
     <div class="controls">
       <div class="seg" id="log-filters">
-        <button class="active" onclick="setLogFilter('all',this)">Semua</button>
-        <button onclick="setLogFilter('match',this)">Match</button>
-        <button onclick="setLogFilter('success',this)">EXP / Sukses</button>
-        <button onclick="setLogFilter('error',this)">Error</button>
+        <button class="active" onclick="setLogFilter('all',this)" data-i="filter.all">Semua</button>
+        <button onclick="setLogFilter('match',this)" data-i="filter.match">Match</button>
+        <button onclick="setLogFilter('success',this)" data-i="logfilter.success">EXP / Sukses</button>
+        <button onclick="setLogFilter('error',this)" data-i="logfilter.error">Error</button>
       </div>
     </div>
     <div class="term">
@@ -361,9 +378,10 @@ body.menu-open .sidebar{transform:none}
     </div>
   </section>
 
+  <!-- ============ PROFILE ============ -->
   <section id="page-profile" class="page">
     <div class="page-head">
-      <div><h1 class="page-title">Profil Tim</h1><p class="page-sub">Identitas dan ringkasan operasional</p></div>
+      <div><h1 class="page-title" data-i="profile.title">Profil Tim</h1><p class="page-sub" data-i="profile.sub">Identitas dan ringkasan operasional</p></div>
     </div>
     <div class="hero">
       <div class="hero-banner"></div>
@@ -371,90 +389,93 @@ body.menu-open .sidebar{transform:none}
         <div class="hero-avatar">H</div>
         <div>
           <div class="hero-name">HARSH</div>
-          <div class="hero-tag">Real-Time Command Center</div>
+          <div class="hero-tag" data-i="brand.sub">Real-Time Command Center</div>
         </div>
         <div class="chips">
-          <span class="chip"><i class="fa-solid fa-shield-halved"></i>Admin</span>
+          <span class="chip"><i class="fa-solid fa-shield-halved"></i><span data-i="chip.admin">Admin</span></span>
           <span class="chip"><i class="fa-solid fa-circle-check"></i><span id="p-status">Online</span></span>
         </div>
       </div>
     </div>
     <div class="stats">
-      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-diagram-project"></i></div><div class="stat-val" id="p-nodes">0</div><div class="stat-label">Node dikelola</div></div>
-      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-bolt"></i></div><div class="stat-val" id="p-matches">0</div><div class="stat-label">Eksekusi dimulai</div></div>
-      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-fire-flame-curved"></i></div><div class="stat-val" id="p-exp">+0</div><div class="stat-label">Total EXP terkumpul</div></div>
-      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-gauge-high"></i></div><div class="stat-val" id="p-rate">0</div><div class="stat-label">EXP per jam</div></div>
+      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-diagram-project"></i></div><div class="stat-val" id="p-nodes">0</div><div class="stat-label" data-i="p.nodes">Node dikelola</div></div>
+      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-bolt"></i></div><div class="stat-val" id="p-matches">0</div><div class="stat-label" data-i="stat.exec">Eksekusi dimulai</div></div>
+      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-fire-flame-curved"></i></div><div class="stat-val" id="p-exp">+0</div><div class="stat-label" data-i="stat.exp">Total EXP terkumpul</div></div>
+      <div class="stat"><div class="stat-icon"><i class="fa-solid fa-gauge-high"></i></div><div class="stat-val" id="p-rate">0</div><div class="stat-label" data-i="p.expHour">EXP per jam</div></div>
     </div>
     <div class="info">
-      <div class="info-row"><span>Nama tim</span><b>HARSH</b></div>
-      <div class="info-row"><span>Dashboard</span><b>Command Center</b></div>
-      <div class="info-row"><span>Peran</span><b>Administrator</b></div>
-      <div class="info-row"><span>Uptime sesi</span><b id="p-uptime">00:00:00</b></div>
+      <div class="info-row"><span data-i="info.team">Nama tim</span><b>HARSH</b></div>
+      <div class="info-row"><span data-i="info.dash">Dashboard</span><b data-i="info.cc">Command Center</b></div>
+      <div class="info-row"><span data-i="info.role">Peran</span><b data-i="info.admin">Administrator</b></div>
+      <div class="info-row"><span data-i="info.uptime">Uptime sesi</span><b id="p-uptime">00:00:00</b></div>
     </div>
   </section>
 
+  <!-- ============ SUPPORT MODAL ============ -->
   <div class="modal" id="supportModal">
     <div class="card" style="text-align:center">
       <div class="d-heart" style="margin:0 auto 16px"><i class="fa-solid fa-heart"></i></div>
-      <h2>SUPPORT CREATOR</h2>
-      <p style="margin-bottom:0">Support the development of HARSH through Binance Pay.</p>
+      <h2 data-i="support.title">SUPPORT CREATOR</h2>
+      <p style="margin-bottom:0" data-i="support.body"></p>
       <div class="d-label" style="justify-content:center"><i class="fa-solid fa-circle-dollar-to-slot"></i>BINANCE PAY ID</div>
       <div class="d-id">
         <code>1282491012</code>
-        <button class="btn gold" onclick="copyText('1282491012','Binance ID')"><i class="fa-regular fa-copy"></i>Salin</button>
+        <button class="btn gold" onclick="copyText('1282491012','Binance ID')"><i class="fa-regular fa-copy"></i><span data-i="donate.copy">Salin</span></button>
       </div>
       <div class="card-actions" style="justify-content:center">
-        <button type="button" class="btn" onclick="closeSupport()">Close</button>
+        <button type="button" class="btn" onclick="closeSupport()" data-i="support.close">Close</button>
       </div>
     </div>
   </div>
 
+  <!-- ============ DONATE ============ -->
   <section id="page-donate" class="page">
     <div class="page-head">
-      <div><h1 class="page-title">Donasi</h1><p class="page-sub">Dukung pengembangan HARSH</p></div>
+      <div><h1 class="page-title" data-i="nav.donate">Donasi</h1><p class="page-sub" data-i="donate.sub">Dukung pengembangan HARSH</p></div>
     </div>
     <div class="donate">
       <div class="d-card">
         <div class="d-heart"><i class="fa-solid fa-heart"></i></div>
-        <h2>Terima kasih sudah mendukung</h2>
-        <p>Donasi kamu membantu menjaga server tetap menyala dan mendorong pengembangan fitur baru. Berapa pun jumlahnya sangat berarti.</p>
+        <h2 data-i="donate.thanks">Terima kasih sudah mendukung</h2>
+        <p data-i="donate.body"></p>
         <div class="d-label"><i class="fa-solid fa-circle-dollar-to-slot"></i>BINANCE PAY ID</div>
         <div class="d-id">
           <code id="binance-id">1282491012</code>
-          <button class="btn gold" onclick="copyText('1282491012','Binance ID')"><i class="fa-regular fa-copy"></i>Salin</button>
+          <button class="btn gold" onclick="copyText('1282491012','Binance ID')"><i class="fa-regular fa-copy"></i><span data-i="donate.copy">Salin</span></button>
         </div>
       </div>
       <div class="d-card">
-        <h2 style="font-size:18px;margin-bottom:18px">Cara donasi</h2>
+        <h2 style="font-size:18px;margin-bottom:18px" data-i="donate.how">Cara donasi</h2>
         <ol class="steps">
-          <li><span data-i="s1">Buka aplikasi <b>Binance</b> lalu pilih <b>Pay</b></span></li>
-          <li><span data-i="s2">Pilih <b>Send</b> dan masukkan Binance ID di samping</span></li>
-          <li><span data-i="s3">Isi jumlah donasi, lalu konfirmasi pembayaran</span></li>
+          <li><span data-i="donate.s1"></span></li>
+          <li><span data-i="donate.s2"></span></li>
+          <li><span data-i="donate.s3"></span></li>
         </ol>
-        <div class="d-note"><i class="fa-solid fa-triangle-exclamation"></i> <span data-i="note">Periksa kembali ID sebelum mengirim. Transaksi kripto tidak bisa dibatalkan.</span></div>
+        <div class="d-note"><i class="fa-solid fa-triangle-exclamation"></i> <span data-i="donate.note"></span></div>
       </div>
     </div>
   </section>
 </main>
 
+<!-- ============ ADD NODE MODAL ============ -->
 <div class="modal" id="addModal">
   <div class="card">
-    <h2>Inject node baru</h2>
-    <p>Masukkan kredensial untuk menjalankan instance baru di server.</p>
+    <h2 data-i="modal.addTitle">Inject node baru</h2>
+    <p data-i="modal.addSub"></p>
     <form onsubmit="submitAddAccount(event)">
-      <div class="field"><label>Tipe autentikasi</label>
+      <div class="field"><label data-i="modal.authType">Tipe autentikasi</label>
         <select id="acc-type" onchange="toggleFormType()">
-          <option value="guest">Guest (UID / Password)</option>
-          <option value="token">Access Token</option>
+          <option value="guest" data-i="modal.guest">Guest (UID / Password)</option>
+          <option value="token" data-i="modal.token">Access Token</option>
         </select></div>
       <div id="guest-inputs">
-        <div class="field"><label>UID</label><input type="text" id="acc-uid" placeholder="Masukkan UID" autocomplete="off"></div>
-        <div class="field"><label>Password / Key</label><input type="password" id="acc-password" placeholder="••••••••••••" autocomplete="off"></div>
+        <div class="field"><label>UID</label><input type="text" id="acc-uid" data-i-ph="ph.uid" autocomplete="off"></div>
+        <div class="field"><label data-i="modal.passLabel">Password / Key</label><input type="password" id="acc-password" placeholder="••••••••••••" autocomplete="off"></div>
       </div>
-      <div id="token-inputs" style="display:none"><div class="field"><label>Access token</label><textarea id="acc-token" placeholder="Tempel token lengkap di sini..."></textarea></div></div>
+      <div id="token-inputs" style="display:none"><div class="field"><label data-i="modal.tokenLabel">Access token</label><textarea id="acc-token" data-i-ph="ph.token"></textarea></div></div>
       <div class="card-actions">
-        <button type="button" class="btn" onclick="closeAddModal()">Batal</button>
-        <button type="submit" class="btn primary"><i class="fa-solid fa-rocket"></i> Deploy node</button>
+        <button type="button" class="btn" onclick="closeAddModal()" data-i="btn.cancel">Batal</button>
+        <button type="submit" class="btn primary"><i class="fa-solid fa-rocket"></i> <span data-i="btn.deploy">Deploy node</span></button>
       </div>
     </form>
   </div>
@@ -463,12 +484,292 @@ body.menu-open .sidebar{transform:none}
 <div class="toasts" id="toastBox"></div>
 
 <script>
-  function closeSupport(){ document.getElementById("supportModal").classList.remove("active"); }
-  document.getElementById("supportModal").addEventListener("click", e => { if(e.target.id === "supportModal") closeSupport(); });
-  setTimeout(() => document.getElementById("supportModal").classList.add("active"), 600);
+function closeSupport(){ document.getElementById("supportModal").classList.remove("active"); }
+document.getElementById("supportModal").addEventListener("click", e => { if(e.target.id === "supportModal") closeSupport(); });
+setTimeout(() => document.getElementById("supportModal").classList.add("active"), 600);
 </script>
 
 <script>
+"use strict";
+
+/* ==================== i18n (id / en / ar / ne / hi) ==================== */
+const I18N = {
+id:{
+"aria.menu":"Buka menu","brand.sub":"Real-Time Command Center","side.engine":"Status mesin",
+"nav.core":"Command Core","nav.targets":"Target Nodes","nav.terminal":"Uplink Terminal","nav.profile":"Profil HARSH","nav.donate":"Donasi",
+"core.sub":"Analitik sistem secara real-time","core.sync":"Sinkronkan",
+"stat.nodes":"Total node terhubung","stat.exec":"Eksekusi dimulai","stat.exp":"Total EXP terkumpul","stat.uptime":"Uptime sistem",
+"fmt.onlineCount":"{0} Online","fmt.perHour":"~{0} / jam","fmt.expHour":"~{0} EXP/jam","fmt.activeCount":"{0} Active",
+"targets.sub":"Kelola akun yang terhubung","btn.pauseAll":"Pause All","btn.resumeAll":"Resume All","btn.inject":"Inject Node",
+"batch.title":"JSON Batch Import",
+"batch.sub":"Upload JSON sekali, lalu pakai Start + Count untuk mengaktifkan rentang account tertentu. JSON tidak disimpan terpisah di server.",
+"batch.next":"Next Batch","batch.file":"Account JSON","batch.start":"Start account #","batch.count":"How many","batch.import":"Import Range","batch.deleteAll":"Delete All",
+"batch.preview":"Pilih JSON dan total account beserta rentang terpilih akan tampil di sini. Contoh: Start 1 + Count 10 → Accounts 1–10.",
+"batch.pvNoFile":"File: {0} (belum valid / belum dipilih)",
+"batch.pvTemplate":"File: <strong>{0}</strong> · Total account: <strong>{1}</strong> · Rentang terpilih: <strong>{2}–{3}</strong> ({4} account)",
+"search.ph":"Cari UID atau nickname...","filter.all":"Semua","filter.match":"Match","filter.online":"Online","filter.paused":"Paused",
+"empty.connecting":"Menghubungkan ke backend...","empty.none":"Belum ada node aktif.","empty.first":"Inject node pertama","empty.offline":"Koneksi ke backend gagal.",
+"card.gain":"Gained EXP","card.cur":"Current EXP","card.matches":"Matches",
+"act.refresh":"Refresh","act.restart":"Restart","act.delete":"Hapus","act.copyUid":"Salin UID",
+"status.online":"ONLINE","status.offline":"OFFLINE","status.match":"IN MATCH","status.searching":"SEARCHING","status.paused":"PAUSED","status.error":"ERROR","status.pending":"MENGHUBUNGKAN",
+"term.sub":"Log eksekusi backend langsung","btn.autoscroll":"Auto-scroll","btn.clearLogs":"Hapus log",
+"logfilter.success":"EXP / Sukses","logfilter.error":"Error",
+"profile.title":"Profil Tim","profile.sub":"Identitas dan ringkasan operasional","chip.admin":"Admin","p.status":"Online",
+"p.nodes":"Node dikelola","p.expHour":"EXP per jam",
+"info.team":"Nama tim","info.dash":"Dashboard","info.role":"Peran","info.uptime":"Uptime sesi","info.admin":"Administrator","info.cc":"Command Center",
+"donate.sub":"Dukung pengembangan HARSH","donate.thanks":"Terima kasih sudah mendukung",
+"donate.body":"Donasi kamu membantu menjaga server tetap menyala dan mendorong pengembangan fitur baru. Berapa pun jumlahnya sangat berarti.",
+"donate.copy":"Salin","donate.how":"Cara donasi",
+"donate.s1":"Buka aplikasi <b>Binance</b> lalu pilih <b>Pay</b>","donate.s2":"Pilih <b>Send</b> dan masukkan Binance ID di samping","donate.s3":"Isi jumlah donasi, lalu konfirmasi pembayaran",
+"donate.note":"Periksa kembali ID sebelum mengirim. Transaksi kripto tidak bisa dibatalkan.",
+"support.title":"SUPPORT CREATOR","support.body":"Support the development of HARSH through Binance Pay.","support.close":"Close",
+"modal.addTitle":"Inject node baru","modal.addSub":"Masukkan kredensial untuk menjalankan instance baru di server.",
+"modal.authType":"Tipe autentikasi","modal.guest":"Guest (UID / Password)","modal.token":"Access Token",
+"modal.passLabel":"Password / Key","modal.tokenLabel":"Access token",
+"ph.uid":"Masukkan UID","ph.token":"Tempel token lengkap di sini...",
+"btn.cancel":"Batal","btn.deploy":"Deploy node",
+"toast.copied":"{0} tersalin: {1}","toast.copyFail":"Gagal menyalin",
+"toast.deleted":"Node {0} dihapus","toast.delFail":"Gagal menghapus",
+"toast.syncing":"Sinkronisasi {0}...","toast.restarting":"Restart proses {0}...",
+"toast.needUidPass":"UID dan password wajib diisi","toast.needToken":"Token wajib diisi",
+"toast.deployed":"Node berhasil di-deploy","toast.deployFail":"Gagal deploy node","toast.connFail":"Koneksi ke backend gagal",
+"toast.pickFile":"Pilih file JSON dulu","toast.importing":"Mengimpor batch...","toast.importFail":"Import gagal",
+"toast.importDone":"Impor selesai: {0} node dalam {1}s","toast.errors":"Gagal",
+"toast.removed":"{0} akun dihapus","toast.fail":"Gagal",
+"confirm.delNode":"Hapus node {0}? Tindakan ini tidak bisa dibatalkan.","confirm.delAll":"Hapus SEMUA akun? Tindakan ini tidak bisa dibatalkan.",
+"toast.nextBatch":"Next batch: mulai #{0}","toast.allImported":"Semua account sudah terimpor","toast.stateFail":"Gagal mengambil state",
+"toast.logsCleared":"Log dibersihkan","toast.allPaused":"Semua node dijeda","toast.allRunning":"Semua node berjalan"
+},
+en:{
+"aria.menu":"Open menu","brand.sub":"Real-Time Command Center","side.engine":"Engine status",
+"nav.core":"Command Core","nav.targets":"Target Nodes","nav.terminal":"Uplink Terminal","nav.profile":"HARSH Profile","nav.donate":"Donate",
+"core.sub":"Real-time system analytics","core.sync":"Sync",
+"stat.nodes":"Total linked nodes","stat.exec":"Executions started","stat.exp":"Total EXP harvested","stat.uptime":"System uptime",
+"fmt.onlineCount":"{0} Online","fmt.perHour":"~{0} / hr","fmt.expHour":"~{0} EXP/hr","fmt.activeCount":"{0} Active",
+"targets.sub":"Manage connected accounts","btn.pauseAll":"Pause All","btn.resumeAll":"Resume All","btn.inject":"Inject Node",
+"batch.title":"JSON Batch Import",
+"batch.sub":"Upload a JSON once, then use Start + Count to activate a specific account range. The JSON is not stored separately on the server.",
+"batch.next":"Next Batch","batch.file":"Account JSON","batch.start":"Start account #","batch.count":"How many","batch.import":"Import Range","batch.deleteAll":"Delete All",
+"batch.preview":"Select a JSON and the total accounts plus selected range will show here. Example: Start 1 + Count 10 → Accounts 1–10.",
+"batch.pvNoFile":"File: {0} (not valid / not selected)",
+"batch.pvTemplate":"File: <strong>{0}</strong> · Total accounts: <strong>{1}</strong> · Selected range: <strong>{2}–{3}</strong> ({4} accounts)",
+"search.ph":"Search UID or nickname...","filter.all":"All","filter.match":"Match","filter.online":"Online","filter.paused":"Paused",
+"empty.connecting":"Connecting to backend...","empty.none":"No active nodes yet.","empty.first":"Inject your first node","empty.offline":"Backend connection failed.",
+"card.gain":"Gained EXP","card.cur":"Current EXP","card.matches":"Matches",
+"act.refresh":"Refresh","act.restart":"Restart","act.delete":"Delete","act.copyUid":"Copy UID",
+"status.online":"ONLINE","status.offline":"OFFLINE","status.match":"IN MATCH","status.searching":"SEARCHING","status.paused":"PAUSED","status.error":"ERROR","status.pending":"CONNECTING",
+"term.sub":"Live backend execution logs","btn.autoscroll":"Auto-scroll","btn.clearLogs":"Clear logs",
+"logfilter.success":"EXP / Success","logfilter.error":"Error",
+"profile.title":"Team Profile","profile.sub":"Identity and operational summary","chip.admin":"Admin","p.status":"Online",
+"p.nodes":"Nodes managed","p.expHour":"EXP per hour",
+"info.team":"Team name","info.dash":"Dashboard","info.role":"Role","info.uptime":"Session uptime","info.admin":"Administrator","info.cc":"Command Center",
+"donate.sub":"Support HARSH development","donate.thanks":"Thank you for your support",
+"donate.body":"Your donation helps keep the servers running and drives new feature development. Every amount means a lot.",
+"donate.copy":"Copy","donate.how":"How to donate",
+"donate.s1":"Open the <b>Binance</b> app and choose <b>Pay</b>","donate.s2":"Choose <b>Send</b> and enter the Binance ID beside","donate.s3":"Enter the donation amount, then confirm the payment",
+"donate.note":"Double-check the ID before sending. Crypto transactions cannot be reversed.",
+"support.title":"SUPPORT CREATOR","support.body":"Support the development of HARSH through Binance Pay.","support.close":"Close",
+"modal.addTitle":"Inject new node","modal.addSub":"Enter credentials to run a new instance on the server.",
+"modal.authType":"Authentication type","modal.guest":"Guest (UID / Password)","modal.token":"Access Token",
+"modal.passLabel":"Password / Key","modal.tokenLabel":"Access token",
+"ph.uid":"Enter UID","ph.token":"Paste the full token here...",
+"btn.cancel":"Cancel","btn.deploy":"Deploy node",
+"toast.copied":"{0} copied: {1}","toast.copyFail":"Failed to copy",
+"toast.deleted":"Node {0} deleted","toast.delFail":"Failed to delete",
+"toast.syncing":"Syncing {0}...","toast.restarting":"Restarting process {0}...",
+"toast.needUidPass":"UID and password are required","toast.needToken":"Token is required",
+"toast.deployed":"Node deployed successfully","toast.deployFail":"Failed to deploy node","toast.connFail":"Backend connection failed",
+"toast.pickFile":"Select a JSON file first","toast.importing":"Importing batch...","toast.importFail":"Import failed",
+"toast.importDone":"Import complete: {0} nodes in {1}s","toast.errors":"Errors",
+"toast.removed":"{0} accounts deleted","toast.fail":"Failed",
+"confirm.delNode":"Delete node {0}? This cannot be undone.","confirm.delAll":"Delete ALL accounts? This cannot be undone.",
+"toast.nextBatch":"Next batch: starting #{0}","toast.allImported":"All accounts already imported","toast.stateFail":"Failed to fetch state",
+"toast.logsCleared":"Logs cleared","toast.allPaused":"All nodes paused","toast.allRunning":"All nodes running"
+},
+ar:{
+"aria.menu":"فتح القائمة","brand.sub":"مركز القيادة المباشر","side.engine":"حالة المحرك",
+"nav.core":"مركز التحكم","nav.targets":"العقد المستهدفة","nav.terminal":"طرفية الاتصال","nav.profile":"ملف HARSH","nav.donate":"تبرّع",
+"core.sub":"تحليلات النظام المباشرة","core.sync":"مزامنة",
+"stat.nodes":"إجمالي العقد المتصلة","stat.exec":"عمليات التنفيذ المبدوءة","stat.exp":"إجمالي EXP المجمّع","stat.uptime":"مدة تشغيل النظام",
+"fmt.onlineCount":"{0} متصل","fmt.perHour":"~{0} / ساعة","fmt.expHour":"~{0} EXP/ساعة","fmt.activeCount":"{0} نشط",
+"targets.sub":"إدارة الحسابات المتصلة","btn.pauseAll":"إيقاف الكل مؤقتًا","btn.resumeAll":"استئناف الكل","btn.inject":"إضافة عقدة",
+"batch.title":"استيراد JSON دفعي",
+"batch.sub":"قم بتحميل JSON مرة واحدة، ثم استخدم Start + Count لتنشيط نطاق حسابات محدد. لا يتم تخزين JSON بشكل منفصل على الخادم.",
+"batch.next":"الدفعة التالية","batch.file":"حساب JSON","batch.start":"رقم حساب البداية","batch.count":"كم عددًا","batch.import":"استيراد النطاق","batch.deleteAll":"حذف الكل",
+"batch.preview":"اختر JSON وسيظهر هنا إجمالي الحسابات والنطاق المحدد. مثال: Start 1 + Count 10 → الحسابات 1–10.",
+"batch.pvNoFile":"الملف: {0} (غير صالح / غير محدد)",
+"batch.pvTemplate":"الملف: <strong>{0}</strong> · إجمالي الحسابات: <strong>{1}</strong> · النطاق المحدد: <strong>{2}–{3}</strong> ({4} حساب)",
+"search.ph":"ابحث عن UID أو الاسم...","filter.all":"الكل","filter.match":"مباراة","filter.online":"متصل","filter.paused":"متوقف مؤقتًا",
+"empty.connecting":"جارٍ الاتصال بالخادم...","empty.none":"لا توجد عقد نشطة بعد.","empty.first":"أضف أول عقدة","empty.offline":"فشل الاتصال بالخادم.",
+"card.gain":"EXP المكتسب","card.cur":"EXP الحالي","card.matches":"المباريات",
+"act.refresh":"تحديث","act.restart":"إعادة التشغيل","act.delete":"حذف","act.copyUid":"نسخ UID",
+"status.online":"متصل","status.offline":"غير متصل","status.match":"في مباراة","status.searching":"جارٍ البحث","status.paused":"متوقف","status.error":"خطأ","status.pending":"جارٍ الاتصال",
+"term.sub":"سجلات تنفيذ الخادم المباشرة","btn.autoscroll":"تمرير تلقائي","btn.clearLogs":"مسح السجلات",
+"logfilter.success":"EXP / نجاح","logfilter.error":"أخطاء",
+"profile.title":"ملف الفريق","profile.sub":"الهوية وملخص العمليات","chip.admin":"مشرف","p.status":"متصل",
+"p.nodes":"العقد المُدارة","p.expHour":"EXP في الساعة",
+"info.team":"اسم الفريق","info.dash":"لوحة التحكم","info.role":"الدور","info.uptime":"مدة الجلسة","info.admin":"مسؤول","info.cc":"مركز القيادة",
+"donate.sub":"ادعم تطوير HARSH","donate.thanks":"شكرًا لدعمك",
+"donate.body":"تبرعك يساعد في إبقاء الخوادم تعمل ويدعم تطوير ميزات جديدة. كل مبلغ له قيمة كبيرة.",
+"donate.copy":"نسخ","donate.how":"طريقة التبرع",
+"donate.s1":"افتح تطبيق <b>Binance</b> واختر <b>Pay</b>","donate.s2":"اختر <b>Send</b> وأدخل معرّف Binance المجاور","donate.s3":"أدخل مبلغ التبرع ثم أكّد الدفع",
+"donate.note":"تحقق من المعرّف قبل الإرسال. معاملات الكريبتو لا يمكن التراجع عنها.",
+"support.title":"ادعم المُنشئ","support.body":"ادعم تطوير HARSH عبر Binance Pay.","support.close":"إغلاق",
+"modal.addTitle":"إضافة عقدة جديدة","modal.addSub":"أدخل بيانات الاعتماد لتشغيل نسخة جديدة على الخادم.",
+"modal.authType":"نوع المصادقة","modal.guest":"ضيف (UID / كلمة المرور)","modal.token":"رمز الوصول",
+"modal.passLabel":"كلمة المرور / المفتاح","modal.tokenLabel":"رمز الوصول",
+"ph.uid":"أدخل UID","ph.token":"الصق الرمز كاملًا هنا...",
+"btn.cancel":"إلغاء","btn.deploy":"تشغيل العقدة",
+"toast.copied":"تم نسخ {0}: {1}","toast.copyFail":"فشل النسخ",
+"toast.deleted":"تم حذف العقدة {0}","toast.delFail":"فشل الحذف",
+"toast.syncing":"جارٍ مزامنة {0}...","toast.restarting":"جارٍ إعادة تشغيل {0}...",
+"toast.needUidPass":"UID وكلمة المرور مطلوبان","toast.needToken":"الرمز مطلوب",
+"toast.deployed":"تم تشغيل العقدة بنجاح","toast.deployFail":"فشل تشغيل العقدة","toast.connFail":"فشل الاتصال بالخادم",
+"toast.pickFile":"اختر ملف JSON أولاً","toast.importing":"جارٍ استيراد الدفعة...","toast.importFail":"فشل الاستيراد",
+"toast.importDone":"اكتمل الاستيراد: {0} عقدة في {1} ثانية","toast.errors":"أخطاء",
+"toast.removed":"تم حذف {0} حساب","toast.fail":"فشل",
+"confirm.delNode":"حذف العقدة {0}؟ لا يمكن التراجع عن هذا الإجراء.","confirm.delAll":"حذف جميع الحسابات؟ لا يمكن التراجع عن هذا الإجراء.",
+"toast.nextBatch":"الدفعة التالية: تبدأ من #{0}","toast.allImported":"تم استيراد جميع الحسابات","toast.stateFail":"فشل جلب الحالة",
+"toast.logsCleared":"تم مسح السجلات","toast.allPaused":"تم إيقاف كل العقد مؤقتًا","toast.allRunning":"كل العقد تعمل"
+},
+ne:{
+"aria.menu":"मेनु खोल्नुहोस्","brand.sub":"रियल-टाइम कमान्ड सेन्टर","side.engine":"इन्जिन स्थिति",
+"nav.core":"कमान्ड कोर","nav.targets":"टार्गेट नोडहरू","nav.terminal":"अपलिङ्क टर्मिनल","nav.profile":"HARSH प्रोफाइल","nav.donate":"दान",
+"core.sub":"रियल-टाइम प्रणाली विश्लेषण","core.sync":"सिंक गर्नुहोस्",
+"stat.nodes":"जोडिएका कुल नोडहरू","stat.exec":"सुरु गरिएका कार्यान्वयन","stat.exp":"जम्मा गरिएको कुल EXP","stat.uptime":"प्रणाली अपटाइम",
+"fmt.onlineCount":"{0} अनलाइन","fmt.perHour":"~{0} / घण्टा","fmt.expHour":"~{0} EXP/घण्टा","fmt.activeCount":"{0} सक्रिय",
+"targets.sub":"जोडिएका खाताहरू व्यवस्थापन गर्नुहोस्","btn.pauseAll":"सबै रोक्नुहोस्","btn.resumeAll":"सबै सुचारु गर्नुहोस्","btn.inject":"नोड थप्नुहोस्",
+"batch.title":"JSON ब्याच इम्पोर्ट",
+"batch.sub":"JSON एक पटक अपलोड गर्नुहोस्, अनि Start + Count प्रयोग गरेर निर्दिष्ट खाता दायरा सक्रिय गर्नुहोस्। JSON सर्भरमा छुट्टै राखिँदैन।",
+"batch.next":"अर्को ब्याच","batch.file":"खाता JSON","batch.start":"सुरु खाता #","batch.count":"कति","batch.import":"दायरा इम्पोर्ट","batch.deleteAll":"सबै मेटाउनुहोस्",
+"batch.preview":"JSON छान्नुहोस् र कुल खाता साथै छानिएको दायरा यहाँ देखिनेछ। उदाहरण: Start 1 + Count 10 → खाता 1–10।",
+"batch.pvNoFile":"फाइल: {0} (अमान्य / छानिएको छैन)",
+"batch.pvTemplate":"फाइल: <strong>{0}</strong> · कुल खाता: <strong>{1}</strong> · छानिएको दायरा: <strong>{2}–{3}</strong> ({4} खाता)",
+"search.ph":"UID वा उपनाम खोज्नुहोस्...","filter.all":"सबै","filter.match":"म्याच","filter.online":"अनलाइन","filter.paused":"रोकिएको",
+"empty.connecting":"ब्याकएन्डमा जडान हुँदैछ...","empty.none":"अहिलेसम्म कुनै सक्रिय नोड छैन।","empty.first":"पहिलो नोड थप्नुहोस्","empty.offline":"ब्याकएन्ड जडान असफल।",
+"card.gain":"प्राप्त EXP","card.cur":"हालको EXP","card.matches":"म्याचहरू",
+"act.refresh":"रिफ्रेस","act.restart":"पुनः सुरु","act.delete":"मेटाउनुहोस्","act.copyUid":"UID कपी गर्नुहोस्",
+"status.online":"अनलाइन","status.offline":"अफलाइन","status.match":"म्याचमा","status.searching":"खोजिँदैछ","status.paused":"रोकिएको","status.error":"त्रुटि","status.pending":"जडान हुँदैछ",
+"term.sub":"ब्याकएन्ड कार्यान्वयन लाइभ लग","btn.autoscroll":"अटो-स्क्रोल","btn.clearLogs":"लग मेटाउनुहोस्",
+"logfilter.success":"EXP / सफल","logfilter.error":"त्रुटि",
+"profile.title":"टोली प्रोफाइल","profile.sub":"पहिचान र सञ्चालन सारांश","chip.admin":"एडमिन","p.status":"अनलाइन",
+"p.nodes":"व्यवस्थापित नोडहरू","p.expHour":"प्रति घण्टा EXP",
+"info.team":"टोलीको नाम","info.dash":"ड्यासबोर्ड","info.role":"भूमिका","info.uptime":"सत्र अपटाइम","info.admin":"प्रशासक","info.cc":"कमान्ड सेन्टर",
+"donate.sub":"HARSH को विकासमा सहयोग गर्नुहोस्","donate.thanks":"सहयोगका लागि धन्यवाद",
+"donate.body":"तपाईंको दानले सर्भर चलिरहन र नयाँ सुविधाहरू विकास गर्न मद्दत गर्छ। जतिसुकै रकम पनि अत्यन्त महत्त्वपूर्ण छ।",
+"donate.copy":"प्रतिलिपि","donate.how":"दान गर्ने तरिका",
+"donate.s1":"<b>Binance</b> एप खोल्नुहोस् र <b>Pay</b> छान्नुहोस्","donate.s2":"<b>Send</b> छान्नुहोस् र छेउको Binance ID प्रविष्ट गर्नुहोस्","donate.s3":"दान रकम प्रविष्ट गर्नुहोस्, अनि भुक्तानी पुष्टि गर्नुहोस्",
+"donate.note":"पठाउनु अघि ID फेरि जाँच गर्नुहोस्। क्रिप्टो कारोबार रद्द गर्न सकिँदैन।",
+"support.title":"सिर्जकलाई सहयोग","support.body":"Binance Pay मार्फत HARSH को विकासलाई सहयोग गर्नुहोस्।","support.close":"बन्द गर्नुहोस्",
+"modal.addTitle":"नयाँ नोड थप्नुहोस्","modal.addSub":"सर्भरमा नयाँ इन्स्ट्यान्स चलाउन क्रेडेन्सियल प्रविष्ट गर्नुहोस्।",
+"modal.authType":"प्रमाणीकरण प्रकार","modal.guest":"गेस्ट (UID / पासवर्ड)","modal.token":"एक्सेस टोकन",
+"modal.passLabel":"पासवर्ड / की","modal.tokenLabel":"एक्सेस टोकन",
+"ph.uid":"UID प्रविष्ट गर्नुहोस्","ph.token":"पूरा टोकन यहाँ टाँस्नुहोस्...",
+"btn.cancel":"रद्द गर्नुहोस्","btn.deploy":"नोड डिप्लोय गर्नुहोस्",
+"toast.copied":"{0} कपी गरियो: {1}","toast.copyFail":"कपी असफल",
+"toast.deleted":"नोड {0} मेटाइयो","toast.delFail":"मेटाउन असफल",
+"toast.syncing":"{0} सिंक हुँदैछ...","toast.restarting":"{0} प्रक्रिया पुनः सुरु हुँदैछ...",
+"toast.needUidPass":"UID र पासवर्ड आवश्यक छ","toast.needToken":"टोकन आवश्यक छ",
+"toast.deployed":"नोड सफलतापूर्वक डिप्लोय भयो","toast.deployFail":"नोड डिप्लोय गर्न असफल","toast.connFail":"ब्याकएन्ड जडान असफल",
+"toast.pickFile":"पहिले JSON फाइल छान्नुहोस्","toast.importing":"ब्याच इम्पोर्ट हुँदैछ...","toast.importFail":"इम्पोर्ट असफल",
+"toast.importDone":"इम्पोर्ट सम्पन्न: {1}s मा {0} नोड","toast.errors":"त्रुटि",
+"toast.removed":"{0} खाता मेटाइयो","toast.fail":"असफल",
+"confirm.delNode":"नोड {0} मेटाउने? यो कार्य पूर्ववत गर्न सकिँदैन।","confirm.delAll":"सबै खाता मेटाउने? यो कार्य पूर्ववत गर्न सकिँदैन।",
+"toast.nextBatch":"अर्को ब्याच: #{0} बाट सुरु","toast.allImported":"सबै खाता पहिले नै इम्पोर्ट भए","toast.stateFail":"स्टेट ल्याउन असफल",
+"toast.logsCleared":"लग मेटाइयो","toast.allPaused":"सबै नोड रोकिए","toast.allRunning":"सबै नोड चलिरहेका छन्"
+},
+hi:{
+"aria.menu":"मेनू खोलें","brand.sub":"रियल-टाइम कमांड सेंटर","side.engine":"इंजन स्थिति",
+"nav.core":"कमांड कोर","nav.targets":"टारगेट नोड्स","nav.terminal":"अपलिंक टर्मिनल","nav.profile":"HARSH प्रोफ़ाइल","nav.donate":"दान करें",
+"core.sub":"रियल-टाइम सिस्टम एनालिटिक्स","core.sync":"सिंक करें",
+"stat.nodes":"कुल जुड़े नोड्स","stat.exec":"शुरू किए गए निष्पादन","stat.exp":"कुल एकत्रित EXP","stat.uptime":"सिस्टम अपटाइम",
+"fmt.onlineCount":"{0} ऑनलाइन","fmt.perHour":"~{0} / घंटे","fmt.expHour":"~{0} EXP/घंटे","fmt.activeCount":"{0} एक्टिव",
+"targets.sub":"जुड़े हुए खातों को प्रबंधित करें","btn.pauseAll":"सभी रोकें","btn.resumeAll":"सभी फिर शुरू करें","btn.inject":"नोड जोड़ें",
+"batch.title":"JSON बैच इंपोर्ट",
+"batch.sub":"JSON एक बार अपलोड करें, फिर Start + Count से खातों की निर्दिष्ट रेंज चालू करें। JSON सर्वर पर अलग से सेव नहीं होता।",
+"batch.next":"अगला बैच","batch.file":"खाता JSON","batch.start":"शुरू खाता #","batch.count":"कितने","batch.import":"रेंज इंपोर्ट","batch.deleteAll":"सब हटाएं",
+"batch.preview":"JSON चुनें और कुल खाते साथ चुनी गई रेंज यहाँ दिखेगी। उदाहरण: Start 1 + Count 10 → खाते 1–10।",
+"batch.pvNoFile":"फ़ाइल: {0} (अमान्य / चयनित नहीं)",
+"batch.pvTemplate":"फ़ाइल: <strong>{0}</strong> · कुल खाते: <strong>{1}</strong> · चुनी गई रेंज: <strong>{2}–{3}</strong> ({4} खाते)",
+"search.ph":"UID या निकनेम खोजें...","filter.all":"सभी","filter.match":"मैच","filter.online":"ऑनलाइन","filter.paused":"रुका हुआ",
+"empty.connecting":"बैकएंड से कनेक्ट हो रहा है...","empty.none":"अभी कोई सक्रिय नोड नहीं है।","empty.first":"पहला नोड जोड़ें","empty.offline":"बैकएंड कनेक्शन विफल।",
+"card.gain":"प्राप्त EXP","card.cur":"वर्तमान EXP","card.matches":"मैच",
+"act.refresh":"रिफ्रेश","act.restart":"पुनः आरंभ","act.delete":"हटाएं","act.copyUid":"UID कॉपी करें",
+"status.online":"ऑनलाइन","status.offline":"ऑफ़लाइन","status.match":"मैच में","status.searching":"खोज रहा है","status.paused":"रुका हुआ","status.error":"त्रुटि","status.pending":"कनेक्ट हो रहा है",
+"term.sub":"बैकएंड निष्पादन लॉग लाइव","btn.autoscroll":"ऑटो-स्क्रॉल","btn.clearLogs":"लॉग साफ़ करें",
+"logfilter.success":"EXP / सफल","logfilter.error":"त्रुटि",
+"profile.title":"टीम प्रोफ़ाइल","profile.sub":"पहचान और संचालन सारांश","chip.admin":"एडमिन","p.status":"ऑनलाइन",
+"p.nodes":"प्रबंधित नोड्स","p.expHour":"प्रति घंटा EXP",
+"info.team":"टीम का नाम","info.dash":"डैशबोर्ड","info.role":"भूमिका","info.uptime":"सत्र अपटाइम","info.admin":"प्रशासक","info.cc":"कमांड सेंटर",
+"donate.sub":"HARSH के विकास में सहयोग करें","donate.thanks":"सहयोग के लिए धन्यवाद",
+"donate.body":"आपके दान से सर्वर चालू रहते हैं और नई सुविधाओं का विकास होता है। हर राशि बहुत मायने रखती है।",
+"donate.copy":"कॉपी करें","donate.how":"दान कैसे करें",
+"donate.s1":"<b>Binance</b> ऐप खोलें और <b>Pay</b> चुनें","donate.s2":"<b>Send</b> चुनें और बगल का Binance ID दर्ज करें","donate.s3":"दान राशि दर्ज करें, फिर भुगतान की पुष्टि करें",
+"donate.note":"भेजने से पहले ID दोबारा जाँचें। क्रिप्टो लेनदेन वापस नहीं हो सकते।",
+"support.title":"क्रिएटर को सहयोग","support.body":"Binance Pay के ज़रिए HARSH के विकास का समर्थन करें।","support.close":"बंद करें",
+"modal.addTitle":"नया नोड जोड़ें","modal.addSub":"सर्वर पर नया इंस्टेंस चलाने के लिए क्रेडेंशियल दर्ज करें।",
+"modal.authType":"प्रमाणीकरण प्रकार","modal.guest":"गेस्ट (UID / पासवर्ड)","modal.token":"एक्सेस टोकन",
+"modal.passLabel":"पासवर्ड / की","modal.tokenLabel":"एक्सेस टोकन",
+"ph.uid":"UID दर्ज करें","ph.token":"पूरा टोकन यहाँ पेस्ट करें...",
+"btn.cancel":"रद्द करें","btn.deploy":"नोड डिप्लॉय करें",
+"toast.copied":"{0} कॉपी किया गया: {1}","toast.copyFail":"कॉपी विफल",
+"toast.deleted":"नोड {0} हटा दिया गया","toast.delFail":"हटाने में विफल",
+"toast.syncing":"{0} सिंक हो रहा है...","toast.restarting":"{0} प्रक्रिया पुनः आरंभ हो रही है...",
+"toast.needUidPass":"UID और पासवर्ड आवश्यक हैं","toast.needToken":"टोकन आवश्यक है",
+"toast.deployed":"नोड सफलतापूर्वक डिप्लॉय हुआ","toast.deployFail":"नोड डिप्लॉय करने में विफल","toast.connFail":"बैकएंड कनेक्शन विफल",
+"toast.pickFile":"पहले JSON फ़ाइल चुनें","toast.importing":"बैच इंपोर्ट हो रहा है...","toast.importFail":"इंपोर्ट विफल",
+"toast.importDone":"इंपोर्ट पूरा: {1}s में {0} नोड","toast.errors":"त्रुटि",
+"toast.removed":"{0} खाते हटा दिए गए","toast.fail":"विफल",
+"confirm.delNode":"नोड {0} हटाएं? यह क्रिया पूर्ववत नहीं की जा सकती।","confirm.delAll":"सभी खाते हटाएं? यह क्रिया पूर्ववत नहीं की जा सकती।",
+"toast.nextBatch":"अगला बैच: #{0} से शुरू","toast.allImported":"सभी खाते पहले ही इंपोर्ट हो चुके","toast.stateFail":"स्टेट लाने में विफल",
+"toast.logsCleared":"लॉग साफ़ किए गए","toast.allPaused":"सभी नोड रोके गए","toast.allRunning":"सभी नोड चल रहे हैं"
+}
+};
+
+let currentLang = localStorage.getItem("harsh_lang") || "id";
+
+function t(key, ...args){
+  const dict = I18N[currentLang] || I18N.id;
+  let s = dict[key] ?? I18N.id[key] ?? key;
+  args.forEach((v, i) => { s = s.split(`{${i}}`).join(String(v)); });
+  return s;
+}
+
+function applyLang(code){
+  if(!I18N[code]) code = "id";
+  currentLang = code;
+  localStorage.setItem("harsh_lang", code);
+  document.documentElement.lang = code;
+  document.documentElement.dir = code === "ar" ? "rtl" : "ltr";
+  document.getElementById("lang").value = code;
+
+  document.querySelectorAll("[data-i]").forEach(el => {
+    const v = (I18N[code])[el.dataset.i];
+    if(v !== undefined) el.innerHTML = v;
+  });
+  document.querySelectorAll("[data-i-ph]").forEach(el => {
+    const v = (I18N[code])[el.dataset.iPh];
+    if(v !== undefined) el.placeholder = v;
+  });
+  document.querySelectorAll("[data-i-title]").forEach(el => {
+    const v = (I18N[code])[el.dataset.iTitle];
+    if(v !== undefined){ el.title = v; el.setAttribute("aria-label", v); }
+  });
+
+  const activeNav = document.querySelector(".nav-item.active");
+  if(activeNav) document.getElementById("topTitle").textContent = t(activeNav.dataset.title);
+  updatePauseLabel();
+  updateBatchPreview();
+
+  // rebuild dynamic content in the new language
+  for(const [, c] of nodeCards){ c.root.remove(); }
+  nodeCards.clear();
+  renderAccounts();
+  renderLogs(true);
+  if(lastData) applyStats(lastData, true);
+}
+
+/* ==================== EXP TABLE ==================== */
 const EXP_TABLE = {
 1:0,2:48,3:202,4:544,5:1012,6:1844,7:2792,8:3800,9:4870,10:6004,
 11:7192,12:8448,13:9760,14:11140,15:12566,16:14060,17:15610,18:17224,19:18902,20:20632,
@@ -481,48 +782,45 @@ const EXP_TABLE = {
 81:7381324,82:8043154,83:8752982,84:9510808,85:10316338,86:11277190,87:12291748,88:13360304,89:14482858,90:15659418,
 91:17026708,92:18453950,93:19941280,94:21488570,95:23095858,96:24763138,97:26490428,98:28378704,99:30124996,100:32032884
 };
+
 let cachedLogs = [], activeFilter = "all", activeLogFilter = "all", autoScroll = true, clientStart = Date.now();
-let allAccounts = [], lastRenderedLogCount = 0, polling = false;
+let allAccounts = [], lastRenderedLogCount = 0, polling = false, lastData = null, pauseAllPaused = false;
 
-/* ---------- LAG GUARDS ---------- */
-function debounce(fn, ms = 180){ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>fn(...a), ms); }; }
+/* ==================== LAG GUARDS ==================== */
+function debounce(fn, ms = 180){ let t_; return (...a)=>{ clearTimeout(t_); t_ = setTimeout(()=>fn(...a), ms); }; }
 const filterAccountsDebounced = debounce(filterAccounts);
-
 function setTxt(el, v){ if(el && el.textContent !== String(v)) el.textContent = v; }
 
-/* ---------- TOAST ---------- */
+/* ==================== TOAST ==================== */
 function toast(msg, type = "info", ms = 3200){
   const box = document.getElementById("toastBox");
-  const t = document.createElement("div");
-  t.className = "toast " + type;
+  const el = document.createElement("div");
+  el.className = "toast " + type;
   const icon = type === "success" ? "fa-circle-check" : type === "error" ? "fa-circle-xmark" : "fa-circle-info";
-  t.innerHTML = `<i class="fa-solid ${icon}"></i><span></span>`;
-  t.querySelector("span").textContent = msg;
-  box.appendChild(t);
-  setTimeout(() => { t.classList.add("hide"); setTimeout(() => t.remove(), 400); }, ms);
+  el.innerHTML = `<i class="fa-solid ${icon}"></i><span></span>`;
+  el.querySelector("span").textContent = msg;
+  box.appendChild(el);
+  setTimeout(() => { el.classList.add("hide"); setTimeout(() => el.remove(), 400); }, ms);
 }
 
-/* ---------- MODAL ---------- */
+/* ==================== MODALS ==================== */
 function openAddModal(){ document.getElementById("addModal").classList.add("active"); }
 function closeAddModal(){ document.getElementById("addModal").classList.remove("active"); }
 document.getElementById("addModal").addEventListener("click", e => { if(e.target.id === "addModal") closeAddModal(); });
-
 function toggleFormType(){
   const type = document.getElementById("acc-type").value;
   document.getElementById("guest-inputs").style.display = type === "guest" ? "" : "none";
   document.getElementById("token-inputs").style.display = type === "token" ? "" : "none";
 }
 
-/* ---------- SIDEBAR ---------- */
-const sidebar = document.getElementById("sidebar");
-const overlay = document.getElementById("overlay");
+/* ==================== SIDEBAR ==================== */
 const menuBtn = document.getElementById("menuBtn");
 function closeMenu(){ document.body.classList.remove("menu-open"); menuBtn.setAttribute("aria-expanded","false"); }
 menuBtn.addEventListener("click", () => {
   const open = document.body.classList.toggle("menu-open");
   menuBtn.setAttribute("aria-expanded", open);
 });
-overlay.addEventListener("click", closeMenu);
+document.getElementById("overlay").addEventListener("click", closeMenu);
 
 document.querySelectorAll(".nav-item").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -530,13 +828,13 @@ document.querySelectorAll(".nav-item").forEach(btn => {
     btn.classList.add("active");
     document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
     document.getElementById("page-" + btn.dataset.page).classList.add("active");
-    document.getElementById("topTitle").textContent = btn.dataset.title;
+    document.getElementById("topTitle").textContent = t(btn.dataset.title);
     closeMenu();
   });
 });
 
-/* ---------- HELPERS ---------- */
-function fmtNum(n){ return Number(n || 0).toLocaleString("id-ID"); }
+/* ==================== HELPERS ==================== */
+function fmtNum(n){ return Number(n || 0).toLocaleString(currentLang === "ar" ? "ar-EG" : currentLang === "id" ? "id-ID" : "en-US"); }
 function fmtUptime(s){
   s = Math.max(0, Math.floor(s));
   const h = String(Math.floor(s / 3600)).padStart(2, "0");
@@ -545,13 +843,30 @@ function fmtUptime(s){
   return `${h}:${m}:${sec}`;
 }
 function esc(s){ const d = document.createElement("div"); d.textContent = String(s ?? ""); return d.innerHTML; }
-
 async function copyText(text, label){
-  try { await navigator.clipboard.writeText(text); toast(`${label} tersalin: ${text}`, "success"); }
-  catch { toast("Gagal menyalin", "error"); }
+  try { await navigator.clipboard.writeText(text); toast(t("toast.copied", label, text), "success"); }
+  catch { toast(t("toast.copyFail"), "error"); }
 }
 
-/* ---------- FILTERS ---------- */
+/* ==================== STATUS RESOLVER (substring — handles PENDING/SEARCHING/etc.) ==================== */
+function statusInfo(acc){
+  const s = String(acc.status || "OFFLINE").toUpperCase();
+  if(s.includes("PENDING") || s.includes("CONNECT")) return { cls:"s-match", icon:"fa-spinner fa-spin", key:"status.pending" };
+  if(s.includes("SEARCH"))  return { cls:"s-match",  icon:"fa-magnifying-glass",        key:"status.searching" };
+  if(s.includes("MATCH"))   return { cls:"s-match",  icon:"fa-gamepad",                key:"status.match" };
+  if(s.includes("PAUSE"))   return { cls:"s-paused", icon:"fa-pause",                  key:"status.paused" };
+  if(s.includes("ERROR") || s.includes("FAIL")) return { cls:"s-error", icon:"fa-triangle-exclamation", key:"status.error" };
+  if(s.includes("OFF"))     return { cls:"s-paused", icon:"fa-plug-circle-xmark",      key:"status.offline" };
+  if(s.includes("ONLINE"))  return { cls:"s-online", icon:"fa-circle-check",           key:"status.online" };
+  return { cls:"s-paused", icon:"fa-circle-question", key:null, raw: s || "UNKNOWN" };
+}
+function statusBadge(acc){
+  const st = statusInfo(acc);
+  const label = st.key ? t(st.key) : st.raw;
+  return `<span class="badge ${st.cls}"><i class="fa-solid ${st.icon}"></i>${esc(label)}</span>`;
+}
+
+/* ==================== FILTERS ==================== */
 function setFilter(f, btn){
   activeFilter = f;
   document.querySelectorAll("#node-filters button").forEach(b => b.classList.remove("active"));
@@ -566,31 +881,19 @@ function setLogFilter(f, btn){
 }
 function toggleAutoScroll(){
   autoScroll = !autoScroll;
-  document.querySelector("#btn-autoscroll").classList.toggle("primary", autoScroll);
+  document.getElementById("btn-autoscroll").classList.toggle("primary", autoScroll);
 }
 function handleLogScroll(){
   const box = document.getElementById("console-stream");
-  if(!autoScroll && box.scrollHeight - box.scrollTop - box.clientHeight < 40) { autoScroll = true; document.querySelector("#btn-autoscroll").classList.add("primary"); }
-  else if(autoScroll && box.scrollHeight - box.scrollTop - box.clientHeight > 80){ autoScroll = false; document.querySelector("#btn-autoscroll").classList.remove("primary"); }
+  const dist = box.scrollHeight - box.scrollTop - box.clientHeight;
+  if(!autoScroll && dist < 40){ autoScroll = true; document.getElementById("btn-autoscroll").classList.add("primary"); }
+  else if(autoScroll && dist > 80){ autoScroll = false; document.getElementById("btn-autoscroll").classList.remove("primary"); }
 }
 function filterAccounts(){ renderAccounts(); }
 
-/* ---------- NODE CARD (keyed, per-field updates) ---------- */
+/* ==================== NODE CARDS (keyed) ==================== */
 const grid = document.getElementById("accounts-container");
 const nodeCards = new Map();
-
-function statusBadge(acc){
-  const s = String(acc.status || "OFFLINE");
-  const map = {
-    "ONLINE":   ["s-online", "fa-circle-check", "ONLINE"],
-    "IN MATCH": ["s-match",  "fa-gamepad",     "IN MATCH"],
-    "MATCH":    ["s-match",  "fa-gamepad",     "IN MATCH"],
-    "PAUSED":   ["s-paused", "fa-pause",       "PAUSED"],
-    "ERROR":    ["s-error",  "fa-triangle-exclamation", "ERROR"]
-  };
-  const [cls, icon, label] = map[s] || map["ONLINE"];
-  return `<span class="badge ${cls}"><i class="fa-solid ${icon}"></i>${label}</span>`;
-}
 
 function buildCard(acc){
   const root = document.createElement("div");
@@ -598,32 +901,45 @@ function buildCard(acc){
   root.innerHTML = `
     <div class="node-head">
       <div class="who">
-        <div class="avatar"><i class="fa-solid fa-user-astronaut"></i><span class="lvl">Lv ${esc(acc.level ?? 1)}</span></div>
+        <div class="avatar"><i class="fa-solid fa-user-astronaut"></i><span class="lvl"></span></div>
         <div style="min-width:0">
-          <div class="name"><span class="n-name">${esc(acc.nickname)}</span><span class="region">${esc(acc.region || "ID")}</span></div>
-          <div class="uid"><i class="fa-regular fa-copy" title="Salin UID" data-copy="${esc(acc.uid)}"></i>${esc(acc.uid)}</div>
+          <div class="name"><span class="n-name"></span><span class="region"></span></div>
+          <div class="uid"><i class="fa-regular fa-copy" data-i-title="act.copyUid"></i><span class="n-uid"></span></div>
         </div>
       </div>
-      <div class="n-badge">${statusBadge(acc)}</div>
+      <div class="n-badge"></div>
     </div>
     <div class="metrics">
-      <div class="metric gain"><span>Gained EXP</span><strong class="n-gain">+0</strong></div>
-      <div class="metric"><span>Current EXP</span><strong class="n-cur">0</strong></div>
-      <div class="metric"><span>Matches</span><strong class="n-matches">0</strong></div>
+      <div class="metric gain"><span data-i="card.gain"></span><strong class="n-gain">+0</strong></div>
+      <div class="metric"><span data-i="card.cur"></span><strong class="n-cur">0</strong></div>
+      <div class="metric"><span data-i="card.matches"></span><strong class="n-matches">0</strong></div>
     </div>
-    <div class="prog-top"><span>Level ${esc(acc.level ?? 1)}</span><span class="n-target"></span></div>
+    <div class="prog-top"><span class="n-lvlA"></span><span class="n-lvlB"></span></div>
     <div class="track"><div class="fill" style="width:0%"></div></div>
     <div class="prog-bot"><span class="n-expbot">0 / 0</span><span class="pct n-pct">0%</span></div>
     <div class="node-foot">
-      <span class="time"><i class="fa-regular fa-clock"></i><span class="n-time">${esc(acc.last_updated || "--:--:--")}</span></span>
+      <span class="time"><i class="fa-regular fa-clock"></i><span class="n-time"></span></span>
       <div class="acts">
-        <button class="act" title="Refresh" data-act="refresh" data-uid="${esc(acc.uid)}"><i class="fa-solid fa-rotate"></i></button>
-        <button class="act" title="Restart" data-act="restart" data-uid="${esc(acc.uid)}"><i class="fa-solid fa-power-off"></i></button>
-        <button class="act danger" title="Hapus" data-act="delete" data-uid="${esc(acc.uid)}"><i class="fa-solid fa-trash"></i></button>
+        <button class="act" data-i-title="act.refresh" data-act="refresh"><i class="fa-solid fa-rotate"></i></button>
+        <button class="act" data-i-title="act.restart" data-act="restart"><i class="fa-solid fa-power-off"></i></button>
+        <button class="act danger" data-i-title="act.delete" data-act="delete"><i class="fa-solid fa-trash"></i></button>
       </div>
     </div>`;
-  root.querySelectorAll(".uid i").forEach(i => i.addEventListener("click", () => copyText(i.dataset.copy, "UID")));
-  root.querySelectorAll(".act").forEach(b => b.addEventListener("click", () => accountAction(b.dataset.act, b.dataset.uid)));
+  root.querySelectorAll("[data-i]").forEach(el => {
+    const v = (I18N[currentLang])[el.dataset.i];
+    if(v !== undefined) el.innerHTML = v;
+  });
+  root.querySelectorAll("[data-i-title]").forEach(el => {
+    const v = (I18N[currentLang])[el.dataset.iTitle];
+    if(v !== undefined){ el.title = v; el.setAttribute("aria-label", v); }
+  });
+  root.querySelector(".n-uid").textContent = acc.uid;
+  const copyI = root.querySelector(".uid i");
+  copyI.addEventListener("click", () => copyText(acc.uid, "UID"));
+  root.querySelectorAll(".act").forEach(b => {
+    b.dataset.uid = acc.uid;
+    b.addEventListener("click", () => accountAction(b.dataset.act, acc.uid));
+  });
   return { root };
 }
 
@@ -634,22 +950,31 @@ function levelFromExp(exp){
 }
 
 function updateCard(root, acc){
-  root.querySelector(".lvl").textContent = "Lv " + (acc.level ?? 1);
+  const lvl = Number(acc.level || 0);
+  root.querySelector(".lvl").textContent = lvl > 0 ? "Lv " + lvl : "…";
   setTxt(root.querySelector(".n-name"), acc.nickname);
   root.querySelector(".region").textContent = acc.region || "ID";
-  root.querySelector(".n-badge").innerHTML = statusBadge(acc);
+
+  const badgeBox = root.querySelector(".n-badge");
+  const st = statusInfo(acc);
+  const label = st.key ? t(st.key) : st.raw;
+  if(badgeBox.dataset.s !== label){
+    badgeBox.dataset.s = label;
+    badgeBox.innerHTML = statusBadge(acc);
+  }
+
   setTxt(root.querySelector(".n-gain"), "+" + fmtNum(acc.gained_exp));
   setTxt(root.querySelector(".n-cur"), fmtNum(acc.current_exp));
   setTxt(root.querySelector(".n-matches"), fmtNum(acc.matches_played));
   setTxt(root.querySelector(".n-time"), acc.last_updated || "--:--:--");
 
   const exp = Number(acc.current_exp || 0);
-  const lvl = Number(acc.level || levelFromExp(exp));
   const base = EXP_TABLE[lvl] ?? 0, next = EXP_TABLE[Math.min(lvl + 1, 100)] ?? base;
   const span = Math.max(1, next - base);
   const into = Math.max(0, Math.min(span, exp - base));
   const pct = Math.round((into / span) * 100);
-  root.querySelector(".n-target").textContent = "Lv " + Math.min(lvl + 1, 100);
+  root.querySelector(".n-lvlA").textContent = lvl > 0 ? "Lv " + lvl : "…";
+  root.querySelector(".n-lvlB").textContent = lvl > 0 ? "Lv " + Math.min(lvl + 1, 100) : "…";
   root.querySelector(".fill").style.width = pct + "%";
   setTxt(root.querySelector(".n-expbot"), `${fmtNum(into)} / ${fmtNum(span)}`);
   setTxt(root.querySelector(".n-pct"), pct + "%");
@@ -658,9 +983,9 @@ function updateCard(root, acc){
 function renderAccounts(){
   const q = (document.getElementById("account-search").value || "").toLowerCase();
   let list = allAccounts;
-  if(activeFilter === "in_match") list = list.filter(a => /MATCH/i.test(a.status || ""));
-  else if(activeFilter === "online") list = list.filter(a => (a.status || "").toUpperCase() === "ONLINE");
-  else if(activeFilter === "paused") list = list.filter(a => (a.status || "").toUpperCase() === "PAUSED");
+  if(activeFilter === "in_match")    list = list.filter(a => /MATCH|SEARCH/i.test(a.status || ""));
+  else if(activeFilter === "online") list = list.filter(a => String(a.status || "").toUpperCase().includes("ONLINE"));
+  else if(activeFilter === "paused") list = list.filter(a => /PAUSE/i.test(a.status || ""));
   if(q) list = list.filter(a => String(a.uid).includes(q) || String(a.nickname).toLowerCase().includes(q));
 
   const seen = new Set();
@@ -680,42 +1005,48 @@ function renderAccounts(){
   }
   const empty = grid.querySelector(".empty");
   if(list.length === 0 && !empty){
-    grid.insertAdjacentHTML("beforeend", `<div class="empty"><i class="fa-solid fa-satellite-dish"></i>Belum ada node aktif.<br><button class="btn primary" onclick="openAddModal()"><i class="fa-solid fa-plus"></i> Inject node pertama</button></div>`);
+    grid.insertAdjacentHTML("beforeend",
+      `<div class="empty"><i class="fa-solid fa-satellite-dish"></i>${esc(t("empty.none"))}<br><button class="btn primary" onclick="openAddModal()"><i class="fa-solid fa-plus"></i> ${esc(t("empty.first"))}</button></div>`);
   } else if(list.length > 0 && empty){
     empty.remove();
   }
 }
 
-/* ---------- ACCOUNT ACTIONS ---------- */
+/* ==================== ACCOUNT ACTIONS ==================== */
 async function accountAction(act, uid){
   if(act === "delete"){
-    if(!confirm(`Hapus node ${uid}? Tindakan ini tidak bisa dibatalkan.`)) return;
-    const r = await fetch("/api/account/delete", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ uid }) });
-    const j = await r.json();
-    if(j.status === "ok"){ toast(`Node ${uid} dihapus`, "success"); fetchStats(); }
-    else toast(j.error || "Gagal menghapus", "error");
+    if(!confirm(t("confirm.delNode", uid))) return;
+    try {
+      const r = await fetch("/api/account/delete", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ uid }) });
+      const j = await r.json();
+      if(j.status === "ok"){ toast(t("toast.deleted", uid), "success"); fetchStats(); }
+      else toast(j.error || t("toast.delFail"), "error");
+    } catch { toast(t("toast.connFail"), "error"); }
   } else if(act === "refresh"){
-    toast(`Sinkronisasi ${uid}...`);
-    await fetch("/api/account/refresh", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ uid }) });
+    toast(t("toast.syncing", uid));
+    try { await fetch("/api/account/refresh", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ uid }) }); } catch {}
     setTimeout(fetchStats, 1500);
   } else if(act === "restart"){
-    toast(`Restart proses ${uid}...`);
-    await fetch("/api/account/refresh", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ uid }) });
+    toast(t("toast.restarting", uid));
+    try { await fetch("/api/account/refresh", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ uid }) }); } catch {}
     setTimeout(fetchStats, 1500);
   }
 }
+function updatePauseLabel(){
+  const el = document.getElementById("pauseAllLabel");
+  if(el) el.textContent = t(pauseAllPaused ? "btn.resumeAll" : "btn.pauseAll");
+}
 async function togglePauseAll(){
-  const btn = document.getElementById("btn-pause-all");
-  const pausing = !btn.dataset.paused;
+  pauseAllPaused = !pauseAllPaused;
+  updatePauseLabel();
   for(const acc of allAccounts){
-    await fetch("/api/account/mode", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ uid: acc.uid, mode: pausing ? "BR" : "BR" }) }).catch(()=>{});
+    await fetch("/api/account/mode", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ uid: acc.uid, mode: "BR" }) }).catch(()=>{});
   }
-  toast(pausing ? "Semua node dijeda" : "Semua node berjalan", "success");
-  btn.dataset.paused = pausing ? "1" : "";
+  toast(t(pauseAllPaused ? "toast.allPaused" : "toast.allRunning"), "success");
   fetchStats();
 }
 
-/* ---------- ADD ACCOUNT ---------- */
+/* ==================== ADD ACCOUNT ==================== */
 async function submitAddAccount(e){
   e.preventDefault();
   const type = document.getElementById("acc-type").value;
@@ -723,26 +1054,26 @@ async function submitAddAccount(e){
   if(type === "guest"){
     const uid = document.getElementById("acc-uid").value.trim();
     const password = document.getElementById("acc-password").value.trim();
-    if(!uid || !password){ toast("UID dan password wajib diisi", "error"); return; }
+    if(!uid || !password){ toast(t("toast.needUidPass"), "error"); return; }
     body = { uid, password };
   } else {
     const token = document.getElementById("acc-token").value.trim();
-    if(!token){ toast("Token wajib diisi", "error"); return; }
+    if(!token){ toast(t("toast.needToken"), "error"); return; }
     body = { token };
   }
   try {
-    const r = await fetch("/api/account/add", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
+    const r = await fetch("/api/account/add", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
     const j = await r.json();
-    if(j.status === "ok"){ toast("Node berhasil di-deploy", "success"); closeAddModal(); fetchStats(); }
-    else toast(j.error || "Gagal deploy node", "error");
-  } catch { toast("Koneksi ke backend gagal", "error"); }
+    if(j.status === "ok"){ toast(t("toast.deployed"), "success"); closeAddModal(); fetchStats(); }
+    else toast(j.error || t("toast.deployFail"), "error");
+  } catch { toast(t("toast.connFail"), "error"); }
 }
 
-/* ---------- BATCH IMPORT ---------- */
+/* ==================== BATCH IMPORT (async, with live progress) ==================== */
 let batchFileData = null, batchFileName = "";
 function previewBatchFile(){
   const f = document.getElementById("batch-file").files[0];
-  if(!f){ batchFileData = null; updateBatchPreview(); return; }
+  if(!f){ batchFileData = null; batchFileName = ""; updateBatchPreview(); return; }
   batchFileName = f.name;
   const reader = new FileReader();
   reader.onload = () => {
@@ -759,48 +1090,83 @@ function previewBatchFile(){
 }
 function updateBatchPreview(){
   const el = document.getElementById("batch-preview");
+  if(!el) return;
   const start = parseInt(document.getElementById("batch-start").value) || 1;
   const count = parseInt(document.getElementById("batch-count").value) || 1;
-  if(!batchFileData){ el.textContent = `File: ${batchFileName || "—"} (belum valid / belum dipilih)`; return; }
+  if(!batchFileData){ el.textContent = t("batch.pvNoFile", batchFileName || "—"); return; }
   const total = batchFileData.length;
   const end = Math.min(total, start + count - 1);
-  el.innerHTML = `File: <strong>${esc(batchFileName)}</strong> · Total account: <strong>${total}</strong> · Rentang terpilih: <strong>${start}–${end}</strong> (${Math.max(0, end - start + 1)} account)`;
+  el.innerHTML = t("batch.pvTemplate", esc(batchFileName), fmtNum(total), fmtNum(start), fmtNum(end), fmtNum(Math.max(0, end - start + 1)));
 }
 async function useNextBatch(){
   try {
     const r = await fetch("/api/stats");
     const j = await r.json();
     const imp = j.import_state || {};
-    if(imp.next_start){ document.getElementById("batch-start").value = imp.next_start; updateBatchPreview(); toast(`Next batch: mulai #${imp.next_start}`, "success"); }
-    else if(imp.last_end) toast("Semua account sudah terimpor", "info");
-  } catch { toast("Gagal mengambil state", "error"); }
+    if(imp.next_start){
+      document.getElementById("batch-start").value = imp.next_start;
+      updateBatchPreview();
+      toast(t("toast.nextBatch", imp.next_start), "success");
+    } else if(imp.last_end){
+      toast(t("toast.allImported"), "info");
+    }
+  } catch { toast(t("toast.stateFail"), "error"); }
 }
 async function submitBatchImport(){
   const f = document.getElementById("batch-file").files[0];
-  if(!f){ toast("Pilih file JSON dulu", "error"); return; }
+  if(!f){ toast(t("toast.pickFile"), "error"); return; }
   const fd = new FormData();
   fd.append("file", f);
   fd.append("start", document.getElementById("batch-start").value);
   fd.append("count", document.getElementById("batch-count").value);
-  toast("Mengimpor batch...");
+  toast(t("toast.importing"));
   try {
-    const r = await fetch("/api/account/import", { method: "POST", body: fd });
+    const r = await fetch("/api/account/import", { method:"POST", body: fd });
     const j = await r.json();
-    if(j.status === "ok"){ toast(j.message || `Accounts ${j.start}-${j.end} diimpor`, "success"); fetchStats(); }
-    else toast(j.error || "Import gagal", "error");
-  } catch { toast("Koneksi ke backend gagal", "error"); }
-}
-async function deleteAllAccounts(){
-  if(!confirm("Hapus SEMUA akun? Tindakan ini tidak bisa dibatalkan.")) return;
-  try {
-    const r = await fetch("/api/account/delete-all", { method: "POST" });
-    const j = await r.json();
-    if(j.status === "ok"){ toast(`${j.removed} akun dihapus`, "success"); fetchStats(); }
-    else toast(j.error || "Gagal", "error");
-  } catch { toast("Koneksi ke backend gagal", "error"); }
+    if(j.status === "ok"){
+      toast(j.message || `Accounts ${j.start}-${j.end} queued`, "success");
+      startImportPoll();
+      fetchStats();
+    } else toast(j.error || t("toast.importFail"), "error");
+  } catch { toast(t("toast.connFail"), "error"); }
 }
 
-/* ---------- LOGS ---------- */
+let importPollTimer = null;
+async function pollImportStatus(){
+  try {
+    const r = await fetch("/api/import/status", { cache:"no-store" });
+    const p = await r.json();
+    const box = document.getElementById("import-progress");
+    if(!p.total){ box.style.display = "none"; stopImportPoll(); return; }
+    box.style.display = "";
+    document.getElementById("ip-fill").style.width = p.percent + "%";
+    document.getElementById("ip-text").textContent =
+      `${p.done} / ${p.total} (${p.percent}%) · ${t("toast.errors")}: ${p.errors} · ${p.elapsed}s`;
+    if(!p.active && p.done >= p.total){
+      stopImportPoll();
+      toast(t("toast.importDone", p.done, p.elapsed), "success");
+      fetchStats();
+    }
+  } catch {}
+}
+function startImportPoll(){
+  stopImportPoll();
+  pollImportStatus();
+  importPollTimer = setInterval(pollImportStatus, 1000);
+}
+function stopImportPoll(){ if(importPollTimer){ clearInterval(importPollTimer); importPollTimer = null; } }
+
+async function deleteAllAccounts(){
+  if(!confirm(t("confirm.delAll"))) return;
+  try {
+    const r = await fetch("/api/account/delete-all", { method:"POST" });
+    const j = await r.json();
+    if(j.status === "ok"){ toast(t("toast.removed", j.removed), "success"); fetchStats(); }
+    else toast(j.error || t("toast.fail"), "error");
+  } catch { toast(t("toast.connFail"), "error"); }
+}
+
+/* ==================== LOGS ==================== */
 const logBox = document.getElementById("console-stream");
 function logMatchesFilter(l){
   if(activeLogFilter === "all") return true;
@@ -811,13 +1177,15 @@ function logMatchesFilter(l){
 }
 function renderLogs(full){
   if(full){ logBox.innerHTML = ""; lastRenderedLogCount = 0; }
+  if(cachedLogs.length < lastRenderedLogCount) lastRenderedLogCount = 0;
   const fresh = cachedLogs.slice(lastRenderedLogCount).filter(logMatchesFilter);
   if(fresh.length){
     const frag = document.createDocumentFragment();
     for(const l of fresh){
       const row = document.createElement("div");
       row.className = "log";
-      row.innerHTML = `<span class="log-ts">${esc(l.time)}</span><span class="log-msg ${esc(l.level)}"></span>`;
+      row.innerHTML = `<span class="log-ts"></span><span class="log-msg ${esc(l.level)}"></span>`;
+      row.querySelector(".log-ts").textContent = l.time;
       row.querySelector(".log-msg").textContent = l.uid ? `[${l.uid}] ${l.message}` : l.message;
       frag.appendChild(row);
     }
@@ -827,40 +1195,41 @@ function renderLogs(full){
   lastRenderedLogCount = cachedLogs.length;
   if(autoScroll && fresh.length) logBox.scrollTop = logBox.scrollHeight;
 }
-async function clearLogs(){
-  cachedLogs = []; renderLogs(true);
-  toast("Log dibersihkan", "success");
+function clearLogs(){
+  cachedLogs = []; lastRenderedLogCount = 0;
+  renderLogs(true);
+  toast(t("toast.logsCleared"), "success");
 }
 
-/* ---------- STATS POLL (guarded, no overlap) ---------- */
-function applyStats(d){
+/* ==================== STATS POLL ==================== */
+function applyStats(d, skipFetch){
+  lastData = d;
   allAccounts = d.accounts || [];
   cachedLogs = d.logs || [];
-  if(cachedLogs.length < lastRenderedLogCount) renderLogs(true); else renderLogs(false);
+  renderLogs(false);
 
-  const online = allAccounts.filter(a => (a.status || "").toUpperCase() === "ONLINE").length;
-  const inMatch = allAccounts.filter(a => /MATCH/i.test(a.status || "")).length;
+  const online  = allAccounts.filter(a => String(a.status || "").toUpperCase().includes("ONLINE")).length;
+  const inMatch = allAccounts.filter(a => /MATCH|SEARCH/i.test(a.status || "")).length;
+  const hrs = d.uptime > 60 ? d.uptime / 3600 : 0;
+
   setTxt(document.getElementById("stat-accounts"), fmtNum(d.total_accounts));
-  setTxt(document.getElementById("stat-online"), `${online} Online`);
+  setTxt(document.getElementById("stat-online"), t("fmt.onlineCount", fmtNum(online)));
   setTxt(document.getElementById("stat-started"), fmtNum(d.total_matches));
   setTxt(document.getElementById("stat-exp"), "+" + fmtNum(d.total_gained_exp));
   setTxt(document.getElementById("stat-uptime"), fmtUptime(d.uptime));
-  setTxt(document.getElementById("stat-active-matches"), `${inMatch} Active`);
-  const hrs = d.uptime > 60 ? d.uptime / 3600 : 0;
-  setTxt(document.getElementById("stat-per-hour"), `~${fmtNum(Math.round(d.total_matches / (hrs || 1)))} / jam`);
-  setTxt(document.getElementById("stat-exp-rate"), `~${fmtNum(Math.round(d.total_gained_exp / (hrs || 1)))} EXP/jam`);
+  setTxt(document.getElementById("stat-active-matches"), t("fmt.activeCount", fmtNum(inMatch)));
+  setTxt(document.getElementById("stat-per-hour"), t("fmt.perHour", fmtNum(Math.round(d.total_matches / (hrs || 1)))));
+  setTxt(document.getElementById("stat-exp-rate"), t("fmt.expHour", fmtNum(Math.round(d.total_gained_exp / (hrs || 1)))));
 
   setTxt(document.getElementById("p-nodes"), fmtNum(d.total_accounts));
   setTxt(document.getElementById("p-matches"), fmtNum(d.total_matches));
   setTxt(document.getElementById("p-exp"), "+" + fmtNum(d.total_gained_exp));
   setTxt(document.getElementById("p-rate"), fmtNum(Math.round(d.total_gained_exp / (hrs || 1))));
-  setTxt(document.getElementById("p-uptime"), fmtUptime(d.uptime));
 
-  const ok = d.total_accounts > 0 || online >= 0;
-  document.getElementById("pill").classList.toggle("off", !ok);
-  setTxt(document.getElementById("side-status"), ok ? "ONLINE" : "OFFLINE");
-  setTxt(document.getElementById("side-status-2"), ok ? "ONLINE" : "OFFLINE");
-  setTxt(document.getElementById("p-status"), ok ? "Online" : "Offline");
+  document.getElementById("pill").classList.remove("off");
+  setTxt(document.getElementById("side-status"), t("status.online"));
+  setTxt(document.getElementById("side-status-2"), t("status.online"));
+  setTxt(document.getElementById("p-status"), t("p.status"));
 
   renderAccounts();
 }
@@ -873,10 +1242,13 @@ async function fetchStats(){
     applyStats(d);
   } catch {
     document.getElementById("pill").classList.add("off");
-    setTxt(document.getElementById("side-status"), "OFFLINE");
-    setTxt(document.getElementById("side-status-2"), "OFFLINE");
-    const empty = grid.querySelector(".empty");
-    if(empty && allAccounts.length === 0) empty.innerHTML = `<i class="fa-solid fa-plug-circle-xmark"></i>Koneksi ke backend gagal.`;
+    setTxt(document.getElementById("side-status"), t("status.offline"));
+    setTxt(document.getElementById("side-status-2"), t("status.offline"));
+    setTxt(document.getElementById("p-status"), t("status.offline"));
+    if(allAccounts.length === 0){
+      const empty = grid.querySelector(".empty");
+      if(empty) empty.innerHTML = `<i class="fa-solid fa-plug-circle-xmark"></i>${esc(t("empty.offline"))}`;
+    }
   }
 }
 
@@ -888,9 +1260,11 @@ function poll(){
   setTimeout(poll, 2500);
 }
 
-/* clock for uptime second display */
+/* session uptime clock */
 setInterval(() => setTxt(document.getElementById("p-uptime"), fmtUptime((Date.now() - clientStart) / 1000)), 1000);
 
+/* init language, then start polling */
+applyLang(currentLang);
 poll();
 </script>
 </body>
